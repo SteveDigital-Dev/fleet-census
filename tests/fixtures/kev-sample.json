@@ -1,0 +1,68 @@
+{
+ "title": "TEST FIXTURE - not real CISA data",
+ "catalogVersion": "test-fixture",
+ "dateReleased": "2026-10-23",
+ "count": 5,
+ "vulnerabilities": [
+  {
+   "cveID": "CVE-2026-86950",
+   "vendorProject": "Apple",
+   "product": "Multiple Products",
+   "vulnerabilityName": "Apple Multiple Products Out-of-Bounds Write Vulnerability",
+   "dateAdded": "2026-09-29",
+   "shortDescription": "CoreGraphics out-of-bounds write (fixture).",
+   "requiredAction": "Apply vendor updates.",
+   "dueDate": "2026-10-20",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": ""
+  },
+  {
+   "cveID": "CVE-2099-0001",
+   "vendorProject": "PHP",
+   "product": "PHP",
+   "vulnerabilityName": "PHP Test Vulnerability",
+   "dateAdded": "2026-10-22",
+   "shortDescription": "Fixture entry for tests.",
+   "requiredAction": "Update PHP.",
+   "dueDate": "2026-11-12",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": ""
+  },
+  {
+   "cveID": "CVE-2099-0002",
+   "vendorProject": "Redis",
+   "product": "Redis",
+   "vulnerabilityName": "Redis Old Test Vulnerability",
+   "dateAdded": "2022-03-01",
+   "shortDescription": "Old fixture entry.",
+   "requiredAction": "Update Redis.",
+   "dueDate": "2022-03-22",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": ""
+  },
+  {
+   "cveID": "CVE-2099-0003",
+   "vendorProject": "Microsoft",
+   "product": "Exchange Server",
+   "vulnerabilityName": "Should not match Windows",
+   "dateAdded": "2026-10-20",
+   "shortDescription": "Fixture.",
+   "requiredAction": "n/a",
+   "dueDate": "2026-11-10",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": ""
+  },
+  {
+   "cveID": "CVE-2099-0004",
+   "vendorProject": "nginx",
+   "product": "nginx",
+   "vulnerabilityName": "nginx Test Vulnerability",
+   "dateAdded": "2026-10-15",
+   "shortDescription": "Fixture.",
+   "requiredAction": "Update nginx.",
+   "dueDate": "2026-11-05",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": ""
+  }
+ ]
+}

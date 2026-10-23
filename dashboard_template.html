@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet Security</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#f0f2f5; --ink:#14181f; --muted:#5d6675; --line:#dfe3e8;
+  --crit:#c62828; --high:#d9480f; --med:#b58100; --low:#1c6dd0; --info:#6b7280; --ok:#1f8a4c;
+  --crit-bg:#fdecec; --high-bg:#fff0e6; --med-bg:#fff7db; --low-bg:#e8f1fd; --info-bg:#eef0f3; --ok-bg:#e6f5ec;
+  --accent:#3b5bdb; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1117; --panel:#151b23; --panel-2:#1c232d; --ink:#e6edf3; --muted:#8b96a5; --line:#2a333f;
+    --crit:#ff6b6b; --high:#ff922b; --med:#f2c94c; --low:#6aa8ff; --info:#9aa4b2; --ok:#4cc38a;
+    --crit-bg:#3a1517; --high-bg:#3a2210; --med-bg:#33290c; --low-bg:#12253f; --info-bg:#1f2630; --ok-bg:#10301f;
+    --accent:#7c93ff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1117; --panel:#151b23; --panel-2:#1c232d; --ink:#e6edf3; --muted:#8b96a5; --line:#2a333f;
+  --crit:#ff6b6b; --high:#ff922b; --med:#f2c94c; --low:#6aa8ff; --info:#9aa4b2; --ok:#4cc38a;
+  --crit-bg:#3a1517; --high-bg:#3a2210; --med-bg:#33290c; --low-bg:#12253f; --info-bg:#1f2630; --ok-bg:#10301f;
+  --accent:#7c93ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1240px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+h2{font-size:15px;margin:28px 0 10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.sub{color:var(--muted);font-size:13px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=search]{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:240px;font:inherit}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 10px}
+button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .n{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.tile .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.tile.crit .n{color:var(--crit)} .tile.high .n{color:var(--high)} .tile.ok .n{color:var(--ok)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.item{display:grid;grid-template-columns:92px 1fr;gap:10px;padding:11px 14px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item .t{font-weight:600}
+.item .d{color:var(--muted);font-size:13px;margin-top:2px}
+.fix{display:flex;gap:8px;align-items:flex-start;margin-top:6px;font-size:13px}
+.fix code{font-family:var(--mono);font-size:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:4px 7px;white-space:pre-wrap;word-break:break-word;flex:1}
+.fix button{padding:3px 8px;font-size:12px}
+.sev{display:inline-block;justify-self:start;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:2px 7px;text-align:center;height:fit-content}
+.sev.critical{color:var(--crit);background:var(--crit-bg)} .sev.high{color:var(--high);background:var(--high-bg)}
+.sev.medium{color:var(--med);background:var(--med-bg)} .sev.low{color:var(--low);background:var(--low-bg)}
+.sev.info{color:var(--info);background:var(--info-bg)}
+.chip{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px 4px 0 0;color:var(--muted);background:var(--panel-2)}
+.chip.m{color:var(--ink);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-size:16px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.card .meta{color:var(--muted);font-size:12.5px}
+.posture{display:flex;flex-wrap:wrap;gap:6px}
+.p{font-size:12px;border-radius:6px;padding:2px 7px;border:1px solid var(--line)}
+.p.good{color:var(--ok);background:var(--ok-bg);border-color:transparent}
+.p.bad{color:var(--crit);background:var(--crit-bg);border-color:transparent}
+.p.unk{color:var(--muted)}
+.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--panel-2)}
+.bar span{display:block;height:100%}
+.counts{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+details{border-top:1px solid var(--line);padding-top:8px}
+summary{cursor:pointer;color:var(--accent);font-size:13px}
+.mini{margin:8px 0 0;padding:0;list-style:none;font-size:13px}
+.mini li{padding:5px 0;border-top:1px dashed var(--line)}
+.mini li:first-child{border-top:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 12px;border-top:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;background:var(--panel-2);border-top:0}
+td.mono{font-family:var(--mono);font-size:12px}
+.scroll{overflow-x:auto}
+.empty{padding:18px 14px;color:var(--muted)}
+.muted{color:var(--muted)}
+.bad-t{color:var(--crit);font-weight:600}
+mark{background:var(--med-bg);color:inherit;border-radius:3px}
+@media (max-width:640px){ .item{grid-template-columns:1fr;gap:6px} input[type=search]{min-width:0} header .controls{width:100%;flex-wrap:nowrap} }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Fleet Security</h1>
+      <div class="sub" id="stamp"></div>
+    </div>
+    <div class="controls">
+      <input type="search" id="q" placeholder="Search machines, software, CVEs, ports…" aria-label="Search">
+      <button id="theme" title="Switch light / dark">Theme</button>
+    </div>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+
+  <h2>Act now</h2>
+  <div class="controls" id="sevfilter" style="margin-bottom:8px"></div>
+  <div class="panel" id="actnow"></div>
+
+  <h2>Machines</h2>
+  <div class="grid" id="machines"></div>
+
+  <h2 id="manual-h">Manual devices</h2>
+  <div class="panel scroll" id="manual"></div>
+
+  <h2 id="inv-h">Inventory</h2>
+  <div class="panel scroll" id="inventory"></div>
+
+  <h2>Software &amp; hardware across the fleet</h2>
+  <div class="panel scroll" id="software"></div>
+
+  <p class="sub" style="margin-top:28px">Generated by fleet-census. Refresh with
+    <code>python3 fleet.py threats</code> then <code>python3 fleet.py dashboard</code>.
+    Threat feeds: CISA Known Exploited Vulnerabilities and OSV.dev.</p>
+</main>
+
+<script src="fleet-data.js"></script>
+<script>
+(function(){
+  "use strict";
+  var D = window.FLEET_SECURITY;
+  var $ = function(id){ return document.getElementById(id); };
+  if(!D){ document.querySelector("main").innerHTML =
+    '<h1>Fleet Security</h1><p>No data yet. Run <code>python3 fleet.py dashboard</code> next to this file.</p>'; return; }
+
+  var ORDER = {critical:0, high:1, medium:2, low:3, info:4};
+  function rank(s){ return s in ORDER ? ORDER[s] : 9; }
+  // findings + live-feed threats, without threats the census check already reported
+  function issuesOf(m){
+    var titles = (m.findings||[]).map(function(f){ return f.title; }).join(" ");
+    return (m.findings||[]).concat((m.threats||[]).filter(function(x){ return !(x.id && titles.indexOf(x.id) >= 0); }));
+  }
+  var SEVS = ["critical","high","medium","low","info"];
+  var COLORS = {critical:"var(--crit)",high:"var(--high)",medium:"var(--med)",low:"var(--low)",info:"var(--info)"};
+  var state = {q:"", sev:{critical:true,high:true,medium:true,low:false,info:false}};
+
+  // ---- theme (remembered per browser; storage may be unavailable) ----
+  try{ var t = localStorage.getItem("fleet-theme"); if(t) document.documentElement.setAttribute("data-theme", t); }catch(e){}
+  $("theme").onclick = function(){
+    var cur = document.documentElement.getAttribute("data-theme") ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var nxt = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", nxt);
+    try{ localStorage.setItem("fleet-theme", nxt); }catch(e){}
+  };
+
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function hl(s){ var e = esc(s); if(!state.q) return e;
+    var q = state.q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+    return e.replace(new RegExp("(" + esc(q) + ")","ig"),"<mark>$1</mark>"); }
+  function matches(){ var q = state.q.toLowerCase(); if(!q) return true;
+    for(var i=0;i<arguments.length;i++){ if(String(arguments[i]||"").toLowerCase().indexOf(q) >= 0) return true; } return false; }
+  function ago(iso){ if(!iso) return "never"; var d = (Date.now() - Date.parse(iso)) / 864e5;
+    return d < 1 ? "today" : Math.round(d) + "d ago"; }
+  function sev(s){ return '<span class="sev ' + esc(s) + '">' + esc(s) + "</span>"; }
+
+  // ---- collect every actionable item ----
+  function allItems(){
+    var out = [];
+    function push(machine, x, kind){
+      out.push({machine:machine, severity:x.severity, title:x.title,
+        detail: kind === "threat" ? (x.summary || "") + (x.matched ? " — matched " + x.matched : "") : (x.detail || ""),
+        fix: kind === "threat" ? x.action : x.fix, id: x.id || "", kind: kind,
+        ransomware: !!x.ransomware, url: x.url || (x.refs && x.refs[0]) || ""});
+    }
+    function add(m){
+      var titles = (m.findings||[]).map(function(f){ return f.title; }).join(" ");
+      (m.findings||[]).forEach(function(x){ push(m.name, x, "finding"); });
+      (m.threats||[]).forEach(function(x){
+        if(x.id && titles.indexOf(x.id) >= 0){   // same CVE already reported by the census check
+          out.forEach(function(o){ if(o.machine === m.name && o.title.indexOf(x.id) >= 0) o.confirmed = true; });
+          return;
+        }
+        push(m.name, x, "threat");
+      });
+    }
+    D.machines.forEach(add); (D.manual||[]).forEach(add);
+    return out.sort(function(a,b){ return rank(a.severity) - rank(b.severity); });
+  }
+  var ITEMS = allItems();
+
+  // ---- tiles ----
+  function count(s){ return ITEMS.filter(function(i){ return i.severity === s; }).length; }
+  function renderTiles(){
+    var missing = (D.inventory||[]).filter(function(r){ return /MISSING/.test(r.census); }).length;
+    var threats = ITEMS.filter(function(i){ return (i.kind === "threat" || i.confirmed) && rank(i.severity) <= 2; }).length;
+    var exposed = D.machines.reduce(function(n,m){ return n + m.exposed.filter(function(e){ return e.exposure === "all" && e.what; }).length; }, 0);
+    var stale = D.machines.filter(function(m){ return (Date.now() - Date.parse(m.collected_at)) / 864e5 > 30; }).length;
+    var tiles = [
+      ["", D.machines.length + (D.manual||[]).length, "Devices tracked"],
+      [count("critical") ? "crit" : "ok", count("critical"), "Critical"],
+      [count("high") ? "high" : "ok", count("high"), "High"],
+      [threats ? "crit" : "ok", D.threats_generated_at ? threats : "—", "Live threat matches"],
+      [exposed ? "high" : "ok", exposed, "Risky open ports"],
+      [missing ? "high" : "ok", missing, "Missing census"],
+      [stale ? "high" : "ok", stale, "Stale census (30d+)"]
+    ];
+    $("tiles").innerHTML = tiles.map(function(t){
+      return '<div class="tile ' + t[0] + '"><div class="n">' + esc(t[1]) + '</div><div class="l">' + esc(t[2]) + "</div></div>";
+    }).join("");
+    $("stamp").textContent = "Census report " + new Date(D.generated_at).toLocaleString() +
+      (D.threats_generated_at ? " · threat feeds searched " + ago(D.threats_generated_at) +
+       (D.kev_catalog ? " (KEV " + D.kev_catalog + ")" : "") : " · threat search not run yet");
+  }
+
+  // ---- severity filter ----
+  function renderSevFilter(){
+    $("sevfilter").innerHTML = SEVS.map(function(s){
+      return '<button data-sev="' + s + '" aria-pressed="' + !!state.sev[s] + '">' + sev(s) + " " + count(s) + "</button>";
+    }).join("");
+    Array.prototype.forEach.call($("sevfilter").querySelectorAll("button"), function(b){
+      b.onclick = function(){ state.sev[b.dataset.sev] = !state.sev[b.dataset.sev]; render(); };
+    });
+  }
+
+  // ---- act now ----
+  function renderActNow(){
+    var rows = ITEMS.filter(function(i){ return state.sev[i.severity] && matches(i.machine, i.title, i.detail, i.id, i.fix); });
+    if(!rows.length){ $("actnow").innerHTML = '<div class="empty">Nothing matches. ' +
+      (ITEMS.length ? "Try turning on more severities above." : "No findings. 🎉") + "</div>"; return; }
+    $("actnow").innerHTML = rows.slice(0, 200).map(function(i, n){
+      return '<div class="item">' + sev(i.severity) + "<div>" +
+        '<div class="t">' + hl(i.title) + (i.ransomware ? ' <span class="chip" style="color:var(--crit)">ransomware</span>' : "") + "</div>" +
+        '<div><span class="chip m">' + hl(i.machine) + "</span>" +
+          '<span class="chip">' + (i.kind === "threat" ? "live threat feed" : "census check") + "</span>" +
+          (i.confirmed ? '<span class="chip" style="color:var(--crit)">also in CISA exploited list</span>' : "") +
+          (i.url ? '<a class="chip" href="' + esc(i.url) + '" target="_blank" rel="noopener">details ↗</a>' : "") + "</div>" +
+        (i.detail ? '<div class="d">' + hl(i.detail) + "</div>" : "") +
+        (i.fix ? '<div class="fix"><code id="fx' + n + '">' + hl(i.fix) + '</code><button data-copy="fx' + n + '">Copy</button></div>' : "") +
+        "</div></div>";
+    }).join("");
+    Array.prototype.forEach.call($("actnow").querySelectorAll("[data-copy]"), function(b){
+      b.onclick = function(){
+        var txt = $(b.dataset.copy).textContent;
+        var done = function(){ b.textContent = "Copied"; setTimeout(function(){ b.textContent = "Copy"; }, 1200); };
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, function(){}); }
+        else { var r = document.createRange(); r.selectNodeContents($(b.dataset.copy));
+          var s = getSelection(); s.removeAllRanges(); s.addRange(r); try{ document.execCommand("copy"); done(); }catch(e){} }
+      };
+    });
+  }
+
+  // ---- machines ----
+  function pill(label, v, good){ // v true/false/null ; good = value that is good
+    var cls = v == null ? "unk" : (v === good ? "good" : "bad");
+    var mark = v == null ? "?" : (v === good ? "✓" : "✗");
+    return '<span class="p ' + cls + '">' + mark + " " + esc(label) + "</span>";
+  }
+  function renderMachines(){
+    var ms = D.machines.filter(function(m){
+      return matches(m.name, m.role, m.os, m.cpu, m.model, (m.gpus||[]).join(" "),
+        m.software.map(function(s){ return s.name + " " + s.version; }).join(" "),
+        m.exposed.map(function(e){ return e.port; }).join(" "),
+        m.threats.map(function(t){ return t.id + " " + t.title; }).join(" "),
+        m.findings.map(function(f){ return f.title + " " + f.detail; }).join(" "),
+        m.exposed.map(function(e){ return e.what || ""; }).join(" "));
+    });
+    if(!ms.length){ $("machines").innerHTML = '<div class="panel empty">No machines match.</div>'; return; }
+    $("machines").innerHTML = ms.map(function(m){
+      var all = issuesOf(m);
+      var c = {}; SEVS.forEach(function(s){ c[s] = all.filter(function(x){ return x.severity === s; }).length; });
+      var total = all.length || 1;
+      var p = m.posture;
+      var stale = (Date.now() - Date.parse(m.collected_at)) / 864e5 > 30;
+      return '<div class="card">' +
+        "<h3><span>" + hl(m.name) + '</span><span class="sub' + (stale ? " bad-t" : "") + '">' + ago(m.collected_at) + "</span></h3>" +
+        '<div class="meta">' + hl(m.role || "") + (m.role ? " · " : "") + hl(m.os || "") +
+          (m.cpu ? "<br>" + hl(m.cpu) : "") + (m.gpus && m.gpus.length ? "<br>" + hl(m.gpus.join(", ")) : "") + "</div>" +
+        '<div class="posture">' + pill("Auto-updates", p.auto_updates, true) + pill("Firewall", p.firewall, true) +
+          pill("Disk encrypted", p.disk_encrypted, true) +
+          (p.ssh_server ? pill("SSH keys only", p.ssh_password === null ? null : !p.ssh_password, true) : "") +
+          pill("Tailscale", p.tailscale, true) +
+          (p.pending_updates ? '<span class="p bad">' + esc(p.pending_updates) + " updates waiting</span>" : "") + "</div>" +
+        '<div class="bar" title="findings by severity">' + SEVS.map(function(s){
+          return c[s] ? '<span style="width:' + (100 * c[s] / total) + "%;background:" + COLORS[s] + '"></span>' : ""; }).join("") + "</div>" +
+        '<div class="counts">' + SEVS.filter(function(s){ return c[s]; }).map(function(s){ return c[s] + " " + s; }).join(" · ") +
+          (all.length ? "" : "no findings 🎉") + "</div>" +
+        "<details><summary>Details: " + m.exposed.length + " open port(s), " + m.software.length + " software, " + m.threats.length + " threat match(es)</summary>" +
+          '<ul class="mini">' +
+          all.slice().sort(function(a,b){ return rank(a.severity) - rank(b.severity); }).map(function(x){
+            return "<li>" + sev(x.severity) + " " + hl(x.title) + "</li>"; }).join("") +
+          m.exposed.map(function(e){ return "<li>Port <b>" + esc(e.port) + "</b>/" + esc(e.proto) + " · " +
+            (e.exposure === "all" ? '<span class="bad-t">every interface</span>' : "one address") +
+            (e.what ? " · " + esc(e.what) : "") + (e.process ? " · " + esc(e.process) : "") + "</li>"; }).join("") +
+          "</ul></details>" +
+        "</div>";
+    }).join("");
+  }
+
+  // ---- manual devices ----
+  function renderManual(){
+    var rows = (D.manual||[]).filter(function(m){ return matches(m.name, m.platform, m.version); });
+    $("manual-h").style.display = (D.manual||[]).length ? "" : "none";
+    $("manual").style.display = (D.manual||[]).length ? "" : "none";
+    $("manual").innerHTML = "<table><thead><tr><th>Device</th><th>Platform</th><th>Version</th><th>Last checked</th><th>Issues</th></tr></thead><tbody>" +
+      rows.map(function(m){
+        var issues = issuesOf(m).filter(function(x){ return rank(x.severity) <= 2; });
+        return "<tr><td><b>" + hl(m.name) + "</b></td><td>" + hl(m.platform || "") + '</td><td class="mono">' +
+          (m.version ? hl(m.version) : '<span class="bad-t">not entered</span>') + "</td><td>" +
+          (m.last_checked ? esc(m.last_checked) : '<span class="muted">never</span>') + "</td><td>" +
+          (issues.length ? issues.map(function(x){ return sev(x.severity) + " " + esc(x.title); }).join("<br>") : '<span class="muted">—</span>') +
+          "</td></tr>"; }).join("") + "</tbody></table>";
+  }
+
+  // ---- inventory ----
+  function renderInventory(){
+    var inv = D.inventory || [];
+    $("inv-h").style.display = inv.length ? "" : "none";
+    $("inventory").style.display = inv.length ? "" : "none";
+    var rows = inv.filter(function(r){ return matches(r.name, r.role, r.status, r.census, r.notes); });
+    $("inventory").innerHTML = "<table><thead><tr><th>Device</th><th>Status</th><th>Census</th><th>Notes</th></tr></thead><tbody>" +
+      rows.map(function(r){
+        return "<tr><td><b>" + hl(r.name) + "</b>" + (r.role ? '<div class="muted">' + hl(r.role) + "</div>" : "") +
+          "</td><td>" + hl(r.status) + "</td><td>" + (/MISSING/.test(r.census) ? '<span class="bad-t">' + esc(r.census) + "</span>" : hl(r.census)) +
+          "</td><td>" + hl(r.notes) + "</td></tr>"; }).join("") + "</tbody></table>";
+  }
+
+  // ---- software matrix ----
+  function renderSoftware(){
+    var rows = (D.software||[]).filter(function(s){ return matches(s.name, s.version, s.machines.join(" ")); });
+    $("software").innerHTML = rows.length ? "<table><thead><tr><th>Software / hardware</th><th>Version</th><th>Machines</th></tr></thead><tbody>" +
+      rows.map(function(s){ return "<tr><td>" + hl(s.name) + '</td><td class="mono">' + hl(s.version) + "</td><td>" +
+        s.machines.map(function(m){ return '<span class="chip">' + hl(m) + "</span>"; }).join("") + "</td></tr>"; }).join("") +
+      "</tbody></table>" : '<div class="empty">No software matches.</div>';
+  }
+
+  function render(){ renderTiles(); renderSevFilter(); renderActNow(); renderMachines(); renderManual(); renderInventory(); renderSoftware(); }
+  var timer;
+  $("q").addEventListener("input", function(e){ clearTimeout(timer); timer = setTimeout(function(){ state.q = e.target.value.trim(); render(); }, 120); });
+  render();
+})();
+</script>
+</body>
+</html>

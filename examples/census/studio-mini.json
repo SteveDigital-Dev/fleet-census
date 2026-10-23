@@ -1,0 +1,124 @@
+{
+  "census_version": "1.0.0",
+  "collected_at": "2026-10-20T14:00:00Z",
+  "host": {
+    "hostname": "studio-mini",
+    "name": "studio-mini",
+    "role": "AI inference",
+    "tags": {
+      "owner": "example"
+    },
+    "model": "Mac16,10",
+    "cpu": "Apple M4",
+    "arch": "arm64",
+    "memory_gb": 32.0,
+    "gpus": [
+      {
+        "vendor": "apple",
+        "name": "Apple M4",
+        "driver": null,
+        "cuda": null
+      }
+    ],
+    "uptime": "up 3 days"
+  },
+  "os": {
+    "family": "macos",
+    "id": "macos",
+    "name": "macOS 26.6",
+    "version": "26.6",
+    "build": "25G80",
+    "kernel": "25.6.0"
+  },
+  "updates": {
+    "package_manager": "softwareupdate",
+    "automatic": true,
+    "pending": null
+  },
+  "security": {
+    "firewall_active": false,
+    "firewall_tool": "application-firewall",
+    "disk_encrypted": true,
+    "ssh_server_running": false,
+    "ssh_password_auth": "unknown",
+    "ssh_root_login": "unknown"
+  },
+  "tailscale": {
+    "installed": true,
+    "version": "1.90.4",
+    "node_name": "studio-mini",
+    "ips": "100.64.0.10",
+    "tags": [
+      "tag:inference"
+    ],
+    "key_expiry": null,
+    "online": true
+  },
+  "listening": [
+    {
+      "proto": "tcp",
+      "address": "*",
+      "port": 11434,
+      "exposure": "all",
+      "process": null
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 8188,
+      "exposure": "localhost",
+      "process": null
+    }
+  ],
+  "software": [
+    {
+      "name": "ollama",
+      "version": "0.12.3",
+      "source": "manual",
+      "package": null,
+      "package_version": null,
+      "raw": "ollama version is 0.12.3",
+      "path": "/usr/local/bin/ollama",
+      "package_source": null
+    },
+    {
+      "name": "php",
+      "version": "8.4.20",
+      "source": "homebrew",
+      "package": null,
+      "package_version": null,
+      "raw": "PHP 8.4.20 (cli)",
+      "path": "/opt/homebrew/bin/php",
+      "package_source": null
+    },
+    {
+      "name": "python3",
+      "version": "3.12.8",
+      "source": "homebrew",
+      "package": null,
+      "package_version": null,
+      "raw": "Python 3.12.8",
+      "path": "/opt/homebrew/bin/python3",
+      "package_source": null
+    }
+  ],
+  "containers": null,
+  "comfyui": [
+    {
+      "path": "~/ComfyUI",
+      "custom_nodes": [
+        "ComfyUI-Manager",
+        "comfyui-example-pack"
+      ]
+    }
+  ],
+  "secrets_present": {
+    "ssh_private_keys": 2,
+    "env_files": 3,
+    "aws_credentials": false,
+    "github_cli_token": true,
+    "netrc": false,
+    "docker_config": false,
+    "huggingface_token": true
+  }
+}

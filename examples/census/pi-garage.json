@@ -1,0 +1,102 @@
+{
+  "census_version": "1.0.0",
+  "collected_at": "2026-08-01T10:00:00Z",
+  "host": {
+    "hostname": "pi-garage",
+    "name": "pi-garage",
+    "role": "home dashboard",
+    "tags": {},
+    "model": "Raspberry Pi 4 Model B Rev 1.4",
+    "cpu": "ARMv7 Processor rev 3 (v7l)",
+    "arch": "aarch64",
+    "memory_gb": 3.7,
+    "gpus": [],
+    "uptime": "up 41 days"
+  },
+  "os": {
+    "family": "linux",
+    "id": "debian",
+    "name": "Debian GNU/Linux 12 (bookworm)",
+    "version": "12",
+    "build": null,
+    "kernel": "6.6.51+rpt-rpi-v8"
+  },
+  "updates": {
+    "package_manager": "apt",
+    "automatic": false,
+    "pending": 37
+  },
+  "security": {
+    "firewall_active": false,
+    "firewall_tool": null,
+    "disk_encrypted": false,
+    "ssh_server_running": true,
+    "ssh_password_auth": "yes-default",
+    "ssh_root_login": "default"
+  },
+  "tailscale": {
+    "installed": true,
+    "version": "1.84.0",
+    "node_name": "pi-garage",
+    "ips": "100.64.0.22",
+    "tags": [],
+    "key_expiry": "2026-11-01T00:00:00Z",
+    "online": true
+  },
+  "listening": [
+    {
+      "proto": "tcp",
+      "address": "0.0.0.0",
+      "port": 22,
+      "exposure": "all",
+      "process": null
+    },
+    {
+      "proto": "tcp",
+      "address": "0.0.0.0",
+      "port": 80,
+      "exposure": "all",
+      "process": null
+    },
+    {
+      "proto": "tcp",
+      "address": "0.0.0.0",
+      "port": 6379,
+      "exposure": "all",
+      "process": null
+    }
+  ],
+  "software": [
+    {
+      "name": "php",
+      "version": "7.4.33",
+      "source": "manual",
+      "package": null,
+      "package_version": null,
+      "raw": "PHP 7.4.33 (cli)",
+      "path": "/usr/local/bin/php",
+      "package_source": null
+    },
+    {
+      "name": "nginx",
+      "version": "1.22.1",
+      "source": "apt",
+      "package": "nginx-core",
+      "package_version": "1.22.1-9",
+      "raw": "nginx version: nginx/1.22.1",
+      "path": "/usr/sbin/nginx",
+      "package_source": "nginx"
+    }
+  ],
+  "containers": [],
+  "comfyui": [],
+  "secrets_present": {
+    "ssh_private_keys": 0,
+    "env_files": 1,
+    "aws_credentials": false,
+    "github_cli_token": false,
+    "netrc": false,
+    "docker_config": false,
+    "huggingface_token": false
+  }
+}

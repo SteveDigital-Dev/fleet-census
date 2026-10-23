@@ -1,0 +1,69 @@
+{
+  "_readme": "List every device you own, so the report can tell you which ones still need a census. Use census: 'manual' for things the script can't run on (phones, tablets, microcontrollers, routers) and fill in version + last_checked by hand.",
+  "devices": [
+    {
+      "name": "studio-mini",
+      "role": "AI inference",
+      "status": "active",
+      "census": "script"
+    },
+    {
+      "name": "pi-garage",
+      "role": "home dashboard",
+      "status": "active",
+      "census": "script"
+    },
+    {
+      "name": "old-laptop",
+      "role": "spare",
+      "status": "active",
+      "census": "script",
+      "notes": "needs a census"
+    },
+    {
+      "name": "my-iphone",
+      "role": "phone",
+      "status": "active",
+      "census": "manual",
+      "platform": "ios",
+      "version": "26.7.1",
+      "last_checked": "2026-10-23"
+    },
+    {
+      "name": "old-ipad",
+      "role": "kids' tablet",
+      "status": "active",
+      "census": "manual",
+      "platform": "ipados",
+      "version": "26.5",
+      "last_checked": "2026-10-01"
+    },
+    {
+      "name": "esp32-sensor",
+      "role": "temperature sensor",
+      "status": "active",
+      "census": "manual",
+      "platform": "esp-idf",
+      "version": "5.3",
+      "last_checked": null,
+      "notes": "OTA disabled"
+    },
+    {
+      "name": "home-router",
+      "role": "router",
+      "status": "active",
+      "census": "manual",
+      "platform": "router-firmware",
+      "version": "unknown",
+      "last_checked": null,
+      "vendor": "TP-Link"
+    }
+  ],
+  "also_watch": [
+    "chrome",
+    "firefox",
+    "safari",
+    "github",
+    "google-account"
+  ]
+}

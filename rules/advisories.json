@@ -1,0 +1,91 @@
+{
+  "_readme": "Known vulnerabilities that fleet.py checks every census against. When a big one hits the news, add an entry here (copy an existing one). 'fixed_in' maps a release branch to the first fixed version. 'branch_parts' is how many numbers make a branch: 2 means 8.4 for PHP, 1 means 26 for macOS. Anything older than 'unsupported_below' (but not older than 'affected_from') gets no fix and must be upgraded.",
+  "advisories": [
+    {
+      "id": "PHP2Shell",
+      "cves": [
+        "CVE-2026-109618",
+        "CVE-2026-109619"
+      ],
+      "software": [
+        "php",
+        "php-fpm",
+        "php-fpm8.5",
+        "php-fpm8.4",
+        "php-fpm8.3",
+        "php-fpm8.2",
+        "php-fpm8.1",
+        "php-fpm8.0",
+        "php-fpm7.4"
+      ],
+      "severity": "critical",
+      "exploited": true,
+      "published": "2026-10-21",
+      "summary": "Unauthenticated remote code execution and memory disclosure in the PHP engine (four bugs under two CVEs).",
+      "affected_from": "5.4",
+      "branch_parts": 2,
+      "fixed_in": {
+        "8.5": "8.5.12",
+        "8.4": "8.4.27",
+        "8.3": "8.3.36",
+        "8.2": "8.2.35"
+      },
+      "unsupported_below": "8.2",
+      "action": "Update PHP, then restart every service that loads it (php-fpm, apache, etc.). If the server was reachable from outside since 2026-10-17, rotate its secrets.",
+      "refs": [
+        "https://www.cisa.gov/news-events/alerts/2026/10/21/critical-vulnerabilities-php-require-immediate-patching",
+        "https://www.wiz.io/blog/php2shell-php-rce",
+        "https://webflow.sysdig.com/blog/php2shell-cve-2026-109618-and-cve-2026-109619-detecting-unauthenticated-remote-code-execution-in-php-core"
+      ]
+    },
+    {
+      "id": "Apple CoreGraphics zero-day",
+      "cves": [
+        "CVE-2026-86950"
+      ],
+      "software": [
+        "macos"
+      ],
+      "severity": "high",
+      "exploited": true,
+      "published": "2026-09-28",
+      "summary": "Out-of-bounds write in CoreGraphics; a malicious file can run code.",
+      "affected_from": "0",
+      "branch_parts": 1,
+      "fixed_in": {
+        "26": "26.7.1",
+        "15": "15.8.1"
+      },
+      "unsupported_below": "15",
+      "action": "System Settings > General > Software Update. iPhones/iPads: iOS 26.7.1 or iOS 27.",
+      "refs": [
+        "https://threatprotect.qualys.com/2026/09/29/apple-warns-users-ios-vulnerability-exploited-in-attack-cve-2026-86950/"
+      ]
+    },
+    {
+      "id": "Apple CoreGraphics zero-day (iOS/iPadOS)",
+      "cves": [
+        "CVE-2026-86950"
+      ],
+      "software": [
+        "ios",
+        "ipados"
+      ],
+      "severity": "high",
+      "exploited": true,
+      "published": "2026-09-28",
+      "summary": "Out-of-bounds write in CoreGraphics; a malicious file can run code.",
+      "affected_from": "0",
+      "branch_parts": 1,
+      "fixed_in": {
+        "26": "26.7.1"
+      },
+      "unsupported_below": "26",
+      "action": "Settings > General > Software Update: install iOS 27, or 26.7.1 if staying on 26. Older iPhones (XR/XS) may get a separate update - check Apple's security releases page.",
+      "refs": [
+        "https://threatprotect.qualys.com/2026/09/29/apple-warns-users-ios-vulnerability-exploited-in-attack-cve-2026-86950/",
+        "https://support.apple.com/en-us/100100"
+      ]
+    }
+  ]
+}

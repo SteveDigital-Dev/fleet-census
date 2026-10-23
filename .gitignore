@@ -1,0 +1,12 @@
+# Your fleet data stays out of git by default. A census is a map of your
+# attack surface. To version it, use a PRIVATE repo (docs/PRIVATE-REPO.md).
+census/*.json
+inventory.json
+FLEET.md
+watchlist.json
+threats.json
+dashboard.html
+fleet-data.js
+!examples/**
+__pycache__/
+.DS_Store
