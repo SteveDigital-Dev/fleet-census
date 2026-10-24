@@ -26,6 +26,7 @@
   --accent:#7c93ff;
 }
 *{box-sizing:border-box}
+a{color:var(--accent)}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:1240px;margin:0 auto;padding:20px 16px 60px}
 header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
@@ -81,6 +82,20 @@ td.mono{font-family:var(--mono);font-size:12px}
 .muted{color:var(--muted)}
 .bad-t{color:var(--crit);font-weight:600}
 mark{background:var(--med-bg);color:inherit;border-radius:3px}
+.level{border-radius:14px;padding:16px 18px;margin-bottom:14px;border:1px solid var(--line)}
+.level.red{background:var(--crit-bg);border-color:var(--crit)} .level.amber{background:var(--high-bg);border-color:var(--high)}
+.level.green{background:var(--ok-bg);border-color:var(--ok)}
+.level .big{font-size:20px;font-weight:800;letter-spacing:.02em}
+.level.red .big{color:var(--crit)} .level.amber .big{color:var(--high)} .level.green .big{color:var(--ok)}
+.headline{padding:12px 14px;border-top:1px solid var(--line)} .headline:first-child{border-top:0}
+.headline .why{font-size:13px;margin-top:6px} .headline .why b{color:var(--muted);font-weight:600}
+.headline ol{margin:6px 0 0 18px;padding:0;font-size:13px} .headline ol li{margin:3px 0}
+.headline ol code{font-family:var(--mono);font-size:12px;background:var(--panel-2);padding:1px 5px;border-radius:4px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px}
+.box h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.box ul{margin:0;padding-left:18px} .check label{display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer}
+.check small{display:block;color:var(--muted)}
 @media (max-width:640px){ .item{grid-template-columns:1fr;gap:6px} input[type=search]{min-width:0} header .controls{width:100%;flex-wrap:nowrap} }
 </style>
 </head>
@@ -96,6 +111,8 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
       <button id="theme" title="Switch light / dark">Theme</button>
     </div>
   </header>
+
+  <section id="bulletin"></section>
 
   <section class="tiles" id="tiles"></section>
 
@@ -331,7 +348,72 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
       "</tbody></table>" : '<div class="empty">No software matches.</div>';
   }
 
-  function render(){ renderTiles(); renderSevFilter(); renderActNow(); renderMachines(); renderManual(); renderInventory(); renderSoftware(); }
+  // ---- weekly bulletin ----
+  function cmdify(s){ // show "Run:  x" style commands as code
+    return esc(s).replace(/(?:Run|Then|Copy it to this machine|Find what is listening|Allow SSH first so you can't lock yourself out|Block everything else coming in|Turn it on|make a key):\s+(.+?)(\s{3}|$)/g,
+      function(m, cmd, tail){ return m.replace(cmd, "<code>" + cmd + "</code>"); });
+  }
+  function renderBulletin(){
+    var b = D.bulletin, el = $("bulletin");
+    if(!b){ el.innerHTML = ""; return; }
+    var hl = (b.headlines || []).filter(function(i){ return matches(i.machine, i.title, i.detail, i.why); });
+    var html = '<div class="level ' + esc(b.level) + '"><div class="big">Threat level: ' + esc(b.level.toUpperCase()) +
+      '</div><div>' + esc(b.why) + '</div><div class="sub">Weekly health check · ' + esc(b.date) +
+      ' · contacted: ' + esc((b.contacts || []).map(function(c){ return c[0]; }).join(", ") || "nothing (offline)") + "</div></div>";
+    html += '<div class="panel">' + (hl.length ? hl.map(function(i){
+      var chips = '<span class="chip m">' + esc(i.machine) + "</span>" +
+        (i.exploited ? '<span class="chip" style="color:var(--crit)">being exploited</span>' : "") +
+        (i.ransomware ? '<span class="chip" style="color:var(--crit)">ransomware</span>' : "") +
+        (i.epss != null ? '<span class="chip">' + (i.epss * 100).toFixed(1) + "% chance of attack in 30 days</span>" : "") +
+        '<span class="chip">' + esc(i.source) + "</span>";
+      return '<div class="headline"><div style="display:flex;gap:10px;align-items:baseline">' + sev(i.severity) +
+        '<div class="t" style="font-weight:600">' + esc(i.title) + "</div></div><div>" + chips + "</div>" +
+        (i.detail ? '<div class="d" style="color:var(--muted);font-size:13px;margin-top:4px">' + esc(i.detail) + "</div>" : "") +
+        '<div class="why"><b>Why this matters:</b> ' + esc(i.why) + "</div>" +
+        "<details><summary>Show me how</summary><ol>" + (i.how || []).map(function(s){ return "<li>" + cmdify(s) + "</li>"; }).join("") + "</ol>" +
+        ((i.refs || []).length ? '<div class="sub" style="margin-top:6px">' + i.refs.slice(0, 3).map(function(r){
+          return '<a href="' + esc(r) + '" target="_blank" rel="noopener">' + esc(r.replace(/^https?:\/\//, "").slice(0, 60)) + "</a>"; }).join(" · ") + "</div>" : "") +
+        (b.extras && b.extras.snooze ? '<div class="sub" style="margin-top:6px">Handled? <code>python3 fleet.py snooze ' + esc(i.key) +
+          " --machine " + esc(i.machine) + ' --reason "..." --days 30</code></div>' : "") +
+        "</details></div>";
+    }).join("") : '<div class="empty">No headlines this week. ✅</div>') + "</div>";
+    var boxes = [];
+    var c = b.changes;
+    if(b.extras && b.extras.changes){
+      if(!c){ boxes.push('<div class="box"><h3>What changed</h3>First bulletin. Next week this shows only what\'s new or fixed.</div>'); }
+      else {
+        var parts = [["New", c["new"]], ["Fixed", c.fixed], ["Ports opened", c.ports_opened], ["Ports closed", c.ports_closed], ["Software", c.software]]
+          .filter(function(p){ return p[1] && p[1].length; });
+        boxes.push('<div class="box"><h3>What changed since ' + esc(c.since) + "</h3>" + (parts.length ? parts.map(function(p){
+          return "<b>" + p[0] + "</b><ul>" + p[1].map(function(x){ return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>"; }).join("") : "Nothing changed.") + "</div>");
+      }
+    }
+    if(b.extras && b.extras.eol){
+      boxes.push('<div class="box"><h3>End of life</h3>' + ((b.eol || []).length ? "<ul>" + b.eol.map(function(e){
+        return "<li>" + esc(e.machine) + ": " + esc(e.title) + "</li>"; }).join("") + "</ul>" : "Nothing at or near end of life. ✅") + "</div>");
+    }
+    if(b.extras && b.extras.snooze && ((b.snoozed || []).length || (b.snooze_expired || []).length)){
+      boxes.push('<div class="box"><h3>Snoozed</h3><ul>' + (b.snoozed || []).map(function(i){
+        return "<li>" + esc(i.machine) + ": " + esc(i.title) + ' <span class="muted">until ' + esc(i.snoozed.until) + " · " + esc(i.snoozed.reason || "") + "</span></li>"; }).join("") +
+        (b.snooze_expired || []).map(function(s){ return "<li>Expired: " + esc(s.key) + "</li>"; }).join("") + "</ul></div>");
+    }
+    if((b.checklist || []).length){
+      var ticks = {}; try{ ticks = JSON.parse(localStorage.getItem("fleet-checklist-" + b.date) || "{}"); }catch(e){}
+      boxes.push('<div class="box check"><h3>Home devices checklist</h3>' + b.checklist.map(function(t, n){
+        return '<label><input type="checkbox" data-tick="' + n + '"' + (ticks[n] ? " checked" : "") + "><span><b>" + esc(t.title) + ":</b> " +
+          esc(t.what) + "<small>" + esc(t.why) + "</small></span></label>"; }).join("") + "</div>");
+    }
+    if(boxes.length) html += '<div class="cols">' + boxes.join("") + "</div>";
+    el.innerHTML = html + "<h2>Fleet details</h2>";
+    Array.prototype.forEach.call(el.querySelectorAll("[data-tick]"), function(cb){
+      cb.onchange = function(){
+        try{ var t = JSON.parse(localStorage.getItem("fleet-checklist-" + b.date) || "{}"); t[cb.dataset.tick] = cb.checked;
+          localStorage.setItem("fleet-checklist-" + b.date, JSON.stringify(t)); }catch(e){}
+      };
+    });
+  }
+
+  function render(){ renderBulletin(); renderTiles(); renderSevFilter(); renderActNow(); renderMachines(); renderManual(); renderInventory(); renderSoftware(); }
   var timer;
   $("q").addEventListener("input", function(e){ clearTimeout(timer); timer = setTimeout(function(){ state.q = e.target.value.trim(); render(); }, 120); });
   render();

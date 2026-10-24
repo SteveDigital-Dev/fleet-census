@@ -48,6 +48,8 @@ class Tests(unittest.TestCase):
         os.environ["FLEET_CACHE_DIR"] = cls.tmp
         import fleet, threats  # noqa: E402  (import after env is set)
         cls.fleet, cls.threats = fleet, threats
+        # set directly too: another test module may have imported threats first
+        threats.OSV_URL, threats.CACHE = os.environ["FLEET_OSV_URL"], Path(cls.tmp)
         cls.hosts = fleet.load_census(ROOT / "examples" / "census")
         cls.inv = json.loads((ROOT / "inventory.example.json").read_text())
         cls.adv = json.loads((ROOT / "rules" / "advisories.json").read_text())["advisories"]

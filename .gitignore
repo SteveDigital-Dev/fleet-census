@@ -7,6 +7,9 @@ watchlist.json
 threats.json
 dashboard.html
 fleet-data.js
+settings.json
+snooze.json
+bulletins/
 !examples/**
 __pycache__/
 .DS_Store

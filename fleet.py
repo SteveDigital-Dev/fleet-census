@@ -9,6 +9,12 @@ and a watch list. Uses only the Python standard library.
   python3 fleet.py threats     # search live threat feeds for your hardware + software
   python3 fleet.py dashboard   # write dashboard.html (open it in any browser, works offline)
 
+Weekly health check (see bulletin.py):
+  python3 fleet.py setup       # first-time walkthrough, in plain English
+  python3 fleet.py bulletin    # this week's threat level, headlines and fixes
+  python3 fleet.py sources     # what gets contacted, and exactly what is sent
+  python3 fleet.py snooze | schedule | uninstall
+
 Options:
   --census DIR      folder of census JSON files   (default: ./census)
   --inventory FILE  devices you expect to exist    (default: ./inventory.json if present)
@@ -471,6 +477,9 @@ def build_watchlist(hosts, inv):
 
 # ---------- main ----------
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("setup", "bulletin", "snooze", "schedule", "sources", "uninstall"):
+        import bulletin
+        return bulletin.cli(sys.argv[1:])
     ap = argparse.ArgumentParser(description="Fleet census reporting")
     ap.add_argument("command", choices=["report", "check", "watchlist", "threats", "dashboard"])
     ap.add_argument("--census", default=str(Path.cwd() / "census"))

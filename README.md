@@ -22,7 +22,21 @@ machine is compromised.
 
 ---
 
-## Quick start (5 minutes)
+## New here? Start with the weekly health check
+
+```bash
+git clone https://github.com/SteveDigital-Dev/fleet-census
+cd fleet-census
+python3 fleet.py setup       # 2-minute walkthrough: what it checks and what it contacts
+python3 fleet.py bulletin    # this week's threat level, headlines and step-by-step fixes
+```
+
+You get a 🟢/🟠/🔴 threat level, headlines that explain *why each one matters*, and **show
+me how** steps written for your system. Extras (week-over-week changes, attack likelihood,
+end-of-life warnings, snooze list, phone alerts, home-devices checklist) are all **off until
+you turn them on**. See **[docs/BULLETIN.md](docs/BULLETIN.md)**.
+
+## Quick start for several machines (5 minutes)
 
 ```bash
 git clone <this repo> fleet-census
@@ -131,12 +145,15 @@ Pi, reachable only over Tailscale). Then remove those lines from `.gitignore`.
 census.sh                 collect one machine
 collect.sh                collect many machines over SSH
 fleet.py                  report / check / watchlist / threats / dashboard
+                          setup / bulletin / sources / snooze / schedule / uninstall
+bulletin.py               the weekly health check (used by fleet.py)
 threats.py                CISA KEV + OSV threat search (used by fleet.py)
 dashboard.py              builds the dashboard (used by fleet.py)
 dashboard_template.html   the dashboard page itself
 rules/advisories.json     known vulnerabilities to check against
 inventory.example.json    list of devices you own (copy to inventory.json)
 watch/WATCH-PROMPT.md     daily security-watch prompt
+docs/BULLETIN.md          the weekly health check, in plain English
 docs/HARDENING.md         plain-language hardening checklist
 docs/PRIVATE-REPO.md      using this with your own private fleet repo
 examples/census/          fake census files for trying it out

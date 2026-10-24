@@ -272,12 +272,14 @@ def _deb_key(v):
 
 
 # ---------- main entry ----------
-def scan(hosts, inventory, days=30, offline=False, kev_file=None, use_osv=True, log=print):
-    try:
-        kev = load_kev(kev_file, offline)
-    except Exception as e:
-        log(f"Couldn't fetch the CISA KEV list ({e}). Try again online, or pass --kev FILE.")
-        kev = None
+def scan(hosts, inventory, days=30, offline=False, kev_file=None, use_osv=True, log=print, use_kev=True):
+    kev = None
+    if use_kev:
+        try:
+            kev = load_kev(kev_file, offline)
+        except Exception as e:
+            log(f"Couldn't fetch the CISA KEV list ({e}). Try again online, or pass --kev FILE.")
+            kev = None
     out = {"generated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "window_days": days,
            "kev_catalog": (kev or {}).get("catalogVersion"), "kev_count": len((kev or {}).get("vulnerabilities", [])),
