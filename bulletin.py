@@ -134,7 +134,10 @@ def kind_of(item):
         return "osv"
     if src == "end-of-life":
         return "eol"
-    for k, words in (("advisory", ["cve-"]), ("port", ["port "]), ("ssh-pw", ["ssh accepts passwords"]),
+    for k, words in (("nopw", ["has no password"]), ("autostart", ["start automatically"]),
+                     ("authkeys", ["ssh key", "can log in"]), ("admins", ["with admin rights"]),
+                     ("unchecked", ["weren't checked"]),
+                     ("advisory", ["cve-"]), ("port", ["port "]), ("ssh-pw", ["ssh accepts passwords"]),
                      ("ssh-root", ["root login"]), ("firewall", ["firewall"]),
                      ("autoupdate", ["automatic security updates", "updates are manual"]),
                      ("pending", ["updates waiting"]), ("disk", ["not encrypted"]),
@@ -164,6 +167,11 @@ WHY = {
     "secrets": "Knowing where your keys live means you can change them fast if something goes wrong.",
     "tailscale": "Tags let you limit which devices can reach which, so one compromised device can't reach everything.",
     "docker": "Some checks were skipped because containers couldn't be listed.",
+    "nopw": "An account without a password is an unlocked door: anyone who reaches a login prompt can walk in.",
+    "autostart": "Programs that start on their own are a favourite hiding place for unwanted software.",
+    "authkeys": "Each key listed is a way into this account. Old or unknown keys are doors left open.",
+    "admins": "Every admin account can take over the whole machine, so fewer is safer.",
+    "unchecked": "Other people's accounts can have their own software, keys and startup items.",
     "other": "Worth a look. The detail below explains it.",
 }
 
@@ -187,8 +195,15 @@ def os_steps(family, pm, platform_name=None):
             "If the file /var/run/reboot-required exists afterwards, reboot."]
 
 
+REVIEW_KINDS = ("autostart", "authkeys", "secrets", "admins", "comfy", "tailscale")
+REVIEW_NOTE = ("This stays on the list while it exists. That's normal: it's here so you know. "
+               "Once you've checked it, snooze it if the snooze list is on.")
+
+
 def how_steps(item, host):
     k = kind_of(item)
+    if k in REVIEW_KINDS:
+        return ([item["action"]] if item.get("action") else []) + [REVIEW_NOTE]
     os_ = (host or {}).get("os") or {}
     pm = ((host or {}).get("updates") or {}).get("package_manager")
     fam = os_.get("family")
@@ -228,6 +243,13 @@ def how_steps(item, host):
                 "Check you can log in without a password.",
                 "Then edit /etc/ssh/sshd_config, set  PasswordAuthentication no , and run  sudo systemctl restart ssh",
                 confirm]
+    if k == "nopw":
+        acct = item.get("account") or "NAME"
+        return [f"If someone uses the account, set a password:  sudo passwd {acct}",
+                f"If nobody uses it, lock it instead:  sudo passwd -l {acct}", confirm]
+    if k == "unchecked":
+        return ["On that machine, open a terminal in the fleet-census folder.",
+                "Run:  sudo ./census.sh --all-users", confirm]
     if k == "disk" and fam == "macos":
         return ["Apple menu → System Settings → Privacy & Security → FileVault → Turn On.",
                 "Store the recovery key somewhere safe (not on this computer)."]
@@ -272,7 +294,7 @@ def collect_items(hosts, inv, advisories, tres):
                 "detail": f.get("detail", ""), "action": f.get("fix", ""), "source": "census check",
                 "exploited": "actively exploited" in (f.get("detail", "") + f["title"]).lower(),
                 "cves": sorted(set(cves)), "refs": f.get("refs") or [], "platform": platform_name,
-                "key": cves[0] if cves else slug(f["title"])})
+                "account": f.get("account"), "key": cves[0] if cves else slug(f["title"])})
 
     def add_threats(machine, hits, platform_name=None):
         seen = {c for i in items if i["machine"] == machine for c in i["cves"]}
@@ -644,6 +666,23 @@ def summary_text(b):
     return "\n".join(L)
 
 
+def keep_all_accounts(path, previous):
+    """The weekly run has no admin rights. If the last census covered every account
+    (sudo ./census.sh --all-users), carry those results over instead of losing them."""
+    if not previous or (previous.get("accounts") or {}).get("mode") != "all-users":
+        return
+    try:
+        new = fleet.load_json(path)
+    except (OSError, ValueError):
+        return
+    if (new.get("accounts") or {}).get("mode") == "all-users":
+        return
+    acc = dict(previous["accounts"])
+    acc.setdefault("collected_at", previous.get("collected_at"))
+    new["accounts"] = acc
+    path.write_text(json.dumps(new, indent=2), encoding="utf-8")
+
+
 # ---------------------------------------------------------------- bulletin run
 def run_bulletin(a):
     s = load_settings()
@@ -675,11 +714,15 @@ def run_bulletin(a):
     census_dir = Path(a.census) if a.census else HERE / "census"
     if s.get("refresh_census", True) and not a.no_refresh:
         say(f"Looking at this computer ({s['machine_name']})...")
+        prev_file = census_dir / f"{s['machine_name']}.json"
+        previous = fleet.load_json(prev_file) if prev_file.exists() else None
         r = subprocess.run(["bash", str(HERE / "census.sh"), "--name", s["machine_name"],
                             "--out", str(census_dir / f"{s['machine_name']}.json")],
                            capture_output=True, text=True)
         if r.returncode != 0:
             log("Census of this computer failed:\n" + r.stderr[-500:])
+        else:
+            keep_all_accounts(census_dir / f"{s['machine_name']}.json", previous)
     hosts = fleet.load_census(census_dir)
     inv_path = Path(a.inventory) if a.inventory else HERE / "inventory.json"
     inv = fleet.load_json(inv_path) if inv_path.exists() else None

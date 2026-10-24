@@ -191,7 +191,8 @@ def check_host(h, advisories, stale_days):
             continue
         if port in RISKY_PORTS:
             f.append(finding("high", f"Port {port} open on every network interface",
-                             f"{RISKY_PORTS[port]}{' - process ' + l['process'] if l.get('process') else ''}.",
+                             f"{RISKY_PORTS[port]}{' - process ' + l['process'] if l.get('process') else ''}"
+                             f"{' run by account ' + l['user'] if l.get('user') else ''}.",
                              PORT_FIX.get(port, "Bind it to 127.0.0.1 (this machine only) or to the Tailscale IP, "
                                                 "or block it with the firewall.")))
     open_all = sorted({l["port"] for l in h.get("listening") or [] if l.get("exposure") == "all"
@@ -259,13 +260,94 @@ def check_host(h, advisories, stale_days):
     s = h.get("secrets_present") or {}
     flags = [k for k in ("aws_credentials", "github_cli_token", "netrc", "docker_config", "huggingface_token") if s.get(k)]
     count = (s.get("ssh_private_keys") or 0) + (s.get("env_files") or 0) + len(flags)
+    if (h.get("accounts") or {}).get("mode") == "all-users":
+        count = 0  # reported per account instead (this block would repeat the root account)
     if count:
         f.append(finding("info", "Credentials stored on this machine",
                          f"{s.get('ssh_private_keys', 0)} SSH private key(s), {s.get('env_files', 0)} .env file(s)"
                          + (", plus: " + ", ".join(flags) if flags else "") + ". (Only counted - never read.)",
                          "Know what's here so you can rotate it if this machine is ever compromised or retired."))
 
+    f += check_accounts(h)
     f.sort(key=lambda x: SEVERITY_ORDER.get(x["severity"], 9))
+    return f
+
+
+def check_accounts(h):
+    """Findings about individual accounts (needs a census run with --all-users)."""
+    acc = h.get("accounts") or {}
+    f = []
+    if acc.get("mode") == "single-user" and acc.get("other_accounts"):
+        n = acc["other_accounts"]
+        f.append(finding("info", f"{n} other account{'s' if n != 1 else ''} on this machine weren't checked",
+                         f"The census ran as '{acc.get('collected_as')}', so it only saw that account's own software, "
+                         "keys and startup items.",
+                         "To include every account:  sudo ./census.sh --all-users   (needs admin rights; still read-only)"))
+    if acc.get("mode") != "all-users":
+        return f
+    when = acc.get("collected_at")
+    if when:
+        try:
+            age = (dt.datetime.now(dt.timezone.utc) -
+                   dt.datetime.strptime(when, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc)).days
+        except ValueError:
+            age = 0
+        if age > 30:
+            f.append(finding("low", f"Account check is {age} days old",
+                             "The per-account results come from an earlier admin run; the weekly check can't refresh them.",
+                             "Refresh them:  sudo ./census.sh --all-users"))
+    users = acc.get("users") or []
+    admins = [u["name"] for u in users if u.get("admin") and u["name"] != "root"]
+    if admins:
+        f.append(finding("info" if len(admins) <= 2 else "low",
+                         f"{len(admins)} account{'s' if len(admins) != 1 else ''} with admin rights: {', '.join(admins)}",
+                         "Each admin account can take over the whole machine.",
+                         "Remove admin from accounts that don't need it: Debian/Ubuntu/Mint  sudo deluser NAME sudo ; "
+                         "Arch  sudo gpasswd -d NAME wheel ; macOS  System Settings → Users & Groups."))
+    for u in users:
+        name = u["name"]
+        if u.get("password") == "empty":
+            x = finding("high", f"Account {name} has no password",
+                        "Anyone who reaches a login prompt (or SSH, if passwords are allowed) can walk straight in.",
+                        f"Set one:  sudo passwd {name}   or, if nobody uses it, lock it:  sudo passwd -l {name}")
+            x["account"] = name
+            f.append(x)
+        auto = u.get("autostart") or {}
+        items = (auto.get("systemd_user") or []) + (auto.get("launch_agents") or []) + (auto.get("desktop_autostart") or [])
+        total = len(items) + (auto.get("cron_jobs") or 0)
+        if total:
+            x = finding("info", f"Account {name}: {total} thing{'s' if total != 1 else ''} start automatically",
+                        (f"{auto.get('cron_jobs')} cron job(s). " if auto.get("cron_jobs") else "")
+                        + (f"Startup items: {', '.join(items[:12])}." if items else ""),
+                        f"Check you recognise each one:  sudo crontab -l -u {name}  and the account's "
+                        "~/.config/systemd/user, ~/.config/autostart or ~/Library/LaunchAgents folders.")
+            x["account"] = name
+            f.append(x)
+        sp = u.get("secrets_present") or {}
+        if sp.get("authorized_keys"):
+            k = sp["authorized_keys"]
+            x = finding("info", f"Account {name}: {k} SSH key{'s' if k != 1 else ''} can log in",
+                        "Each key in ~/.ssh/authorized_keys is a way into this account.",
+                        f"Remove any you don't recognise from ~{name}/.ssh/authorized_keys.")
+            x["account"] = name
+            f.append(x)
+        flags = [k for k in ("aws_credentials", "github_cli_token", "netrc", "docker_config", "huggingface_token") if sp.get(k)]
+        count = (sp.get("ssh_private_keys") or 0) + (sp.get("env_files") or 0) + len(flags)
+        if count:
+            x = finding("info", f"Account {name}: credentials stored",
+                        f"{sp.get('ssh_private_keys', 0)} SSH private key(s), {sp.get('env_files', 0)} .env file(s)"
+                        + (", plus: " + ", ".join(flags) if flags else "") + ". (Found by file name only; never opened.)",
+                        "Know what's here so it can be rotated if this account is ever compromised or removed.")
+            x["account"] = name
+            f.append(x)
+        for c in u.get("comfyui") or []:
+            n = len(c.get("custom_nodes") or [])
+            if n:
+                x = finding("info", f"Account {name}: ComfyUI has {n} custom node(s)",
+                            "Custom nodes are other people's code running with this account's permissions.",
+                            "Remove ones that aren't used; only install from authors you trust.")
+                x["account"] = name
+                f.append(x)
     return f
 
 
@@ -449,6 +531,13 @@ def software_map(hosts):
         for c in h.get("comfyui") or []:
             for node in c.get("custom_nodes") or []:
                 m.setdefault(("comfyui-custom-node", node), set()).add(n)
+        for u in (h.get("accounts") or {}).get("users") or []:
+            for kind, names in (u.get("software") or {}).items():
+                for tool in names or []:
+                    m.setdefault((f"{kind}:{tool}", f"account {u['name']}"), set()).add(n)
+            for c in u.get("comfyui") or []:
+                for node in c.get("custom_nodes") or []:
+                    m.setdefault(("comfyui-custom-node", node), set()).add(f"{n} ({u['name']})")
     return m
 
 

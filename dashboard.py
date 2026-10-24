@@ -18,6 +18,25 @@ HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "dashboard_template.html"
 
 
+def _accounts_summary(h):
+    acc = h.get("accounts") or {}
+    if acc.get("mode") != "all-users":
+        return {"mode": acc.get("mode") or "unknown", "other_accounts": acc.get("other_accounts")}
+    users = []
+    for u in acc.get("users") or []:
+        auto, sw, sp = u.get("autostart") or {}, u.get("software") or {}, u.get("secrets_present") or {}
+        users.append({
+            "name": u["name"], "admin": u.get("admin"), "password": u.get("password"),
+            "autostart": (auto.get("cron_jobs") or 0) + sum(len(auto.get(k) or []) for k in
+                                                            ("systemd_user", "launch_agents", "desktop_autostart")),
+            "tools": sum(len(v or []) for v in sw.values()),
+            "keys_in": sp.get("authorized_keys") or 0,
+            "secrets": (sp.get("ssh_private_keys") or 0) + (sp.get("env_files") or 0) +
+                       sum(1 for k in ("aws_credentials", "github_cli_token", "netrc", "docker_config",
+                                       "huggingface_token") if sp.get(k))})
+    return {"mode": "all-users", "users": users}
+
+
 def build_data(hosts, inv, advisories, stale_days, threats=None):
     machines = []
     threat_map = (threats or {}).get("machines", {})
@@ -26,7 +45,7 @@ def build_data(hosts, inv, advisories, stale_days, threats=None):
         hd, os_, sec, upd, ts = (h.get(k) or {} for k in ("host", "os", "security", "updates", "tailscale"))
         findings = fleet.check_host(h, advisories, stale_days)
         exposed = [{"port": l.get("port"), "exposure": l.get("exposure"), "proto": l.get("proto"),
-                    "process": l.get("process"), "what": fleet.RISKY_PORTS.get(l.get("port"))}
+                    "process": l.get("process"), "user": l.get("user"), "what": fleet.RISKY_PORTS.get(l.get("port"))}
                    for l in h.get("listening") or [] if l.get("exposure") != "localhost"]
         machines.append({
             "name": name, "role": hd.get("role"), "tags": hd.get("tags") or {},
@@ -41,6 +60,7 @@ def build_data(hosts, inv, advisories, stale_days, threats=None):
                 "ssh_password": sec.get("ssh_password_auth") in ("yes", "yes-default") if sec.get("ssh_server_running") else None,
                 "tailscale": ts.get("installed"), "tailscale_tags": ts.get("tags") or [],
             },
+            "accounts": _accounts_summary(h),
             "findings": findings,
             "threats": threat_map.get(name, []),
             "exposed": exposed,

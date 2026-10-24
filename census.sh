@@ -13,14 +13,16 @@
 #   ./census.sh --name studio-mini --role "inference box" --tag agent=helper
 #   ./census.sh --out -                 # print JSON to stdout instead
 #   ./census.sh --redact                # leave out IP addresses
+#   sudo ./census.sh --all-users        # also check every account's own software,
+#                                       # autostart items and credential files (counts only)
 #
 # Compatible with the old bash 3.2 that ships on macOS.
 
 set -u
-CENSUS_VERSION="1.1.0"
+CENSUS_VERSION="1.2.0"
 
 # ---------- arguments ----------
-NAME=""; ROLE=""; OUT=""; REDACT=0; TAGS=""
+NAME=""; ROLE=""; OUT=""; REDACT=0; TAGS=""; ALL_USERS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --name)   NAME="${2:-}"; shift 2 ;;
@@ -28,10 +30,18 @@ while [ $# -gt 0 ]; do
     --tag)    TAGS="${TAGS}${2:-}"$'\n'; shift 2 ;;
     --out)    OUT="${2:-}"; shift 2 ;;
     --redact) REDACT=1; shift ;;
-    -h|--help) sed -n '2,20p' "$0" 2>/dev/null; exit 0 ;;
+    --all-users) ALL_USERS=1; shift ;;
+    -h|--help) sed -n '2,22p' "$0" 2>/dev/null; exit 0 ;;
     *) echo "Unknown option: $1 (try --help)" >&2; exit 2 ;;
   esac
 done
+
+if [ "$ALL_USERS" = 1 ] && [ "${EUID:-$(id -u)}" -ne 0 ]; then
+  echo "--all-users looks inside every account's home folder, which needs admin rights." >&2
+  echo "Run it again with sudo:   sudo ./census.sh --all-users" >&2
+  echo "It still only reads: it lists software and counts credential files, never opening them." >&2
+  exit 2
+fi
 
 # ---------- helpers ----------
 has() { command -v "$1" >/dev/null 2>&1; }
@@ -252,14 +262,14 @@ fi
 # exposure: "localhost" (this machine only), "all" (every network interface),
 # or "specific" (one address, e.g. only the Tailscale IP).
 LISTEN=""
-add_listen() {  # proto addr port process
-  local proto="$1" addr="$2" port="$3" proc="$4" exposure="specific"
+add_listen() {  # proto addr port process [user]
+  local proto="$1" addr="$2" port="$3" proc="$4" owner="${5:-}" exposure="specific"
   case "$addr" in
     127.*|::1|localhost|\[::1\]) exposure="localhost" ;;
     0.0.0.0|\*|::|\[::\]|"") exposure="all" ;;
   esac
   local shown="$addr"; [ "$REDACT" = "1" ] && [ "$exposure" = "specific" ] && shown="redacted"
-  LISTEN="${LISTEN}{\"proto\":\"$proto\",\"address\":$(str "$shown"),\"port\":$port,\"exposure\":\"$exposure\",\"process\":$(str "$proc")},"
+  LISTEN="${LISTEN}{\"proto\":\"$proto\",\"address\":$(str "$shown"),\"port\":$port,\"exposure\":\"$exposure\",\"process\":$(str "$proc"),\"user\":$(str "$owner")},"
 }
 if [ "$OS_FAMILY" = "linux" ] && has ss; then
   while read -r proto local proc; do
@@ -267,10 +277,22 @@ if [ "$OS_FAMILY" = "linux" ] && has ss; then
     port=${local##*:}; addr=${local%:*}; addr=${addr%%%*}
     case "$port" in ''|*[!0-9]*) continue;; esac
     pname=$(printf '%s' "${proc:-}" | grep -Eo '"[^"]+"' | head -1 | tr -d '"')
-    add_listen "$proto" "$addr" "$port" "$pname"
+    ppid=$(printf '%s' "${proc:-}" | grep -Eo 'pid=[0-9]+' | head -1 | cut -d= -f2)
+    powner=""; [ -n "$ppid" ] && powner=$(ps -o user= -p "$ppid" 2>/dev/null | tr -d ' ')
+    add_listen "$proto" "$addr" "$port" "$pname" "$powner"
   done <<EOF
 $(run ss -H -tuln -p 2>/dev/null | awk '{ if ($1=="udp" && $2!="UNCONN") next; print $1, $5, $7 }' | sort -u)
 EOF
+elif [ "${EUID:-$(id -u)}" -eq 0 ] && has lsof; then
+  # macOS as root, or Linux without ss: lsof names the program and account behind every port
+  while read -r cmd owner local; do
+    [ -z "${local:-}" ] && continue
+    port=${local##*:}; addr=${local%:*}
+    case "$port" in ''|*[!0-9]*) continue;; esac
+    add_listen "tcp" "$addr" "$port" "$cmd" "$owner"
+  done <<LSOF
+$(run lsof -nP -iTCP -sTCP:LISTEN +c 0 | awk 'NR>1 {print $1, $3, $9}' | sort -u)
+LSOF
 elif [ "$OS_FAMILY" = "macos" ]; then
   while read -r local; do
     [ -z "$local" ] && continue
@@ -392,6 +414,96 @@ if [ -d "$HOME/.ssh" ]; then
 fi
 ENV_FILES=$(find "$HOME" -maxdepth 4 \( -name node_modules -o -name .git -o -name Library -o -name .cache -o -name .venv -o -name venv \) -prune -o -type f -name '.env*' -print 2>/dev/null | grep -vcE '\.env\.(example|sample|template)$')
 
+# ---------- accounts ----------
+# Default: only this account is checked; the other human accounts are just counted.
+# With --all-users (as root): each account's own software, autostart items and
+# credential files, found by file NAME only. Private keys are never opened.
+list_accounts() {  # prints: name uid home shell
+  if [ "$OS_FAMILY" = "macos" ]; then
+    dscl . -list /Users UniqueID 2>/dev/null | while read -r u id; do
+      [ "$id" -ge 501 ] 2>/dev/null || continue
+      h=$(dscl . -read "/Users/$u" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+      sh=$(dscl . -read "/Users/$u" UserShell 2>/dev/null | awk '{print $2}')
+      echo "$u $id ${h:-/Users/$u} ${sh:-/bin/zsh}"
+    done
+  else
+    min=$(awk '/^UID_MIN/ {print $2}' /etc/login.defs 2>/dev/null); min=${min:-1000}
+    { getent passwd 2>/dev/null || cat /etc/passwd; } | awk -F: -v m="$min" \
+      '($3>=m && $3<65534) || $3==0 {print $1, $3, $6, $7}'
+  fi
+}
+is_login_shell() { case "$1" in */nologin|*/false|"") return 1;; esac; return 0; }
+names_in() {  # JSON array of entry names in a folder (max 60), optional glob
+  local dir="$1" pat="${2:-*}" out="" n=0 f
+  [ -d "$dir" ] || { printf '[]'; return; }
+  for f in "$dir"/$pat; do
+    [ -e "$f" ] || continue
+    n=$((n+1)); [ $n -gt 60 ] && break
+    out="${out}$(str "$(basename "$f")"),"
+  done
+  printf '[%s]' "${out%,}"
+}
+ME=$(id -un)
+ACCOUNTS_JSON=""; OTHER_ACCOUNTS=0
+while read -r u uid home shell; do
+  [ -z "${u:-}" ] && continue
+  if [ "$uid" = 0 ]; then
+    [ "$ALL_USERS" = 1 ] || continue
+  else
+    is_login_shell "$shell" || continue
+    [ "$u" != "$ME" ] && OTHER_ACCOUNTS=$((OTHER_ACCOUNTS+1))
+  fi
+  [ "$ALL_USERS" = 1 ] || continue
+  [ -d "$home" ] || continue
+  admin="no"
+  if [ "$uid" = 0 ]; then admin="yes"
+  elif [ "$OS_FAMILY" = "macos" ]; then dseditgroup -o checkmember -m "$u" admin >/dev/null 2>&1 && admin="yes"
+  else id -nG "$u" 2>/dev/null | tr ' ' '\n' | grep -qxE 'sudo|wheel|admin' && admin="yes"; fi
+  pw="unknown"
+  if [ -r /etc/shadow ]; then
+    # only whether a password is empty / locked / set - never the hash itself
+    pw=$(awk -F: -v u="$u" '$1==u { if ($2=="") print "empty"; else if ($2 ~ /^[!*]/) print "locked"; else print "set" }' /etc/shadow)
+  fi
+  cron=$(run crontab -l -u "$u" | grep -cvE '^[[:space:]]*(#|$)')
+  keys=0
+  for k in "$home"/.ssh/id_* "$home"/.ssh/*.pem "$home"/.ssh/*.key; do
+    [ -f "$k" ] || continue
+    case "$k" in *.pub) continue;; esac
+    keys=$((keys+1))
+  done
+  authk=0
+  [ -f "$home/.ssh/authorized_keys" ] && authk=$(grep -cE '^(ssh-|ecdsa-|sk-)' "$home/.ssh/authorized_keys" 2>/dev/null)
+  envs=$(find "$home" -maxdepth 4 \( -name node_modules -o -name .git -o -name Library -o -name .cache -o -name .venv -o -name venv \) -prune -o -type f -name '.env*' -print 2>/dev/null | grep -vcE '\.env\.(example|sample|template)$')
+  ucomfy=""
+  for d in "$home/ComfyUI" "$home/comfyui" "$home/Documents/ComfyUI"; do
+    [ -d "$d/custom_nodes" ] && ucomfy="${ucomfy}{\"path\":$(str "~$u${d#"$home"}"),\"custom_nodes\":$(names_in "$d/custom_nodes")},"
+  done
+  conda=""
+  for c in miniconda3 anaconda3 miniforge3 mambaforge; do
+    e=$(names_in "$home/$c/envs"); e=${e#[}; e=${e%]}
+    [ -n "$e" ] && conda="${conda}${e},"
+  done
+  ACCOUNTS_JSON="${ACCOUNTS_JSON}{\"name\": $(str "$u"), \"uid\": $uid, \"admin\": $(tri "$admin"), \"password\": $(str "$pw"), \"login_shell\": $(str "$shell"),
+      \"autostart\": {\"cron_jobs\": ${cron:-0}, \"systemd_user\": $(names_in "$home/.config/systemd/user" '*.service'),
+                    \"launch_agents\": $(names_in "$home/Library/LaunchAgents" '*.plist'),
+                    \"desktop_autostart\": $(names_in "$home/.config/autostart" '*.desktop')},
+      \"software\": {\"local_bin\": $(names_in "$home/.local/bin"), \"pipx\": $(names_in "$home/.local/share/pipx/venvs"),
+                   \"npm_global\": $(names_in "$home/.npm-global/lib/node_modules"), \"conda_envs\": [${conda%,}],
+                   \"applications\": $(names_in "$home/Applications" '*.app')},
+      \"comfyui\": [${ucomfy%,}],
+      \"secrets_present\": {\"ssh_private_keys\": $keys, \"authorized_keys\": ${authk:-0}, \"env_files\": ${envs:-0},
+        \"aws_credentials\": $(tri "$(yesno "$home/.aws/credentials")"), \"github_cli_token\": $(tri "$(yesno "$home/.config/gh/hosts.yml")"),
+        \"netrc\": $(tri "$(yesno "$home/.netrc")"), \"docker_config\": $(tri "$(yesno "$home/.docker/config.json")"),
+        \"huggingface_token\": $(tri "$(yesno "$home/.cache/huggingface/token")")}},"
+done <<ACCTS
+$(list_accounts)
+ACCTS
+if [ "$ALL_USERS" = 1 ]; then
+  ACCOUNTS="{\"mode\": \"all-users\", \"collected_as\": $(str "$ME"), \"users\": [${ACCOUNTS_JSON%,}]}"
+else
+  ACCOUNTS="{\"mode\": \"single-user\", \"collected_as\": $(str "$ME"), \"other_accounts\": $OTHER_ACCOUNTS}"
+fi
+
 # ---------- user tags ----------
 TAGJSON=""
 while IFS= read -r t; do
@@ -454,6 +566,7 @@ JSON=$(cat <<EOF
   "software": $SOFTWARE,
   "containers": $CONTAINERS,
   "comfyui": $COMFY,
+  "accounts": $ACCOUNTS,
   "secrets_present": {
     "ssh_private_keys": $SSH_KEYS,
     "env_files": ${ENV_FILES:-0},

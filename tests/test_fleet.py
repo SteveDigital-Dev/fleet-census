@@ -104,6 +104,25 @@ class Tests(unittest.TestCase):
         self.assertNotIn('src="fleet-data.js"', one)
         self.assertEqual(len(files), 2)
 
+    def test_accounts(self):
+        h = next(x for x in self.hosts if self.fleet.name_of(x) == "shared-server")
+        f = self.fleet.check_host(h, self.adv, 10 ** 6)
+        t = {x["title"]: x for x in f}
+        self.assertEqual(t["Account guest has no password"]["severity"], "high")
+        self.assertEqual(t["Account guest has no password"]["account"], "guest")
+        self.assertIn("Account dana: 2 things start automatically", t)
+        self.assertIn("Account dana: ComfyUI has 2 custom node(s)", t)
+        self.assertIn("Account owner: 2 SSH keys can log in", t)
+        port = t["Port 8888 open on every network interface"]
+        self.assertIn("run by account dana", port["detail"])
+        self.assertNotIn("Credentials stored on this machine", t)  # reported per account instead
+        single = {"accounts": {"mode": "single-user", "collected_as": "me", "other_accounts": 2}}
+        self.assertIn("2 other accounts on this machine weren't checked",
+                      [x["title"] for x in self.fleet.check_accounts(single)])
+        # per-account tools reach the threat search
+        labels = [lbl for lbl, _ in self.threats.targets_for_host(h)]
+        self.assertTrue(any("ollama (local_bin, account guest)" in lbl for lbl in labels))
+
     def test_osv_ecosystems(self):
         e = self.threats.osv_ecosystem
         self.assertEqual(e({"os": {"id": "ubuntu", "version": "24.04"}}), "Ubuntu:24.04:LTS")

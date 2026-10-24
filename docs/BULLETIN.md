@@ -93,6 +93,13 @@ python3 fleet.py schedule off
 Linux uses your user's crontab and macOS uses a LaunchAgent; neither needs admin rights.
 Each run adds one line to `bulletins/schedule.log`.
 
+## Shared computers
+
+The weekly check runs as you, without admin rights. If other people use the computer, run
+`sudo ./census.sh --all-users` once in a while. The bulletin then includes every account
+(no-password accounts, startup items, login keys, which account runs each open port) and keeps
+those results between admin runs. It tells you when they're more than 30 days old.
+
 ## How the threat level is decided
 
 - 🔴 **Red:** anything critical, or anything serious that attackers are using right now. Fix these first.

@@ -122,6 +122,12 @@ def targets_for_host(host):
     ts = host.get("tailscale") or {}
     if ts.get("installed"):
         out.append((f"tailscale {ts.get('version') or ''}", SOFTWARE_KEYS["tailscale"]))
+    for u in (host.get("accounts") or {}).get("users") or []:
+        for kind, names in (u.get("software") or {}).items():
+            for tool in names or []:
+                key = re.sub(r"\.app$", "", tool.lower())
+                if key in SOFTWARE_KEYS:
+                    out.append((f"{tool} ({kind}, account {u['name']})", SOFTWARE_KEYS[key]))
     for c in host.get("containers") or [] if isinstance(host.get("containers"), list) else []:
         img = (c.get("image") or "").split("/")[-1].split(":")[0].lower()
         if img in SOFTWARE_KEYS:

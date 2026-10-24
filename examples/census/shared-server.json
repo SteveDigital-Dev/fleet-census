@@ -1,0 +1,242 @@
+{
+  "census_version": "1.0.0",
+  "collected_at": "2026-10-23T12:00:00Z",
+  "host": {
+    "hostname": "shared-server",
+    "name": "shared-server",
+    "role": "team dev server",
+    "tags": {},
+    "model": "Example Tower",
+    "cpu": "AMD Ryzen 5 2600X Six-Core Processor",
+    "arch": "x86_64",
+    "memory_gb": 31.3,
+    "gpus": [
+      {
+        "vendor": "nvidia",
+        "name": "NVIDIA GeForce RTX 4070",
+        "driver": "580.95",
+        "cuda": "13.0"
+      }
+    ],
+    "uptime": "up 9 days"
+  },
+  "os": {
+    "family": "linux",
+    "id": "ubuntu",
+    "name": "Ubuntu 24.04.3 LTS",
+    "version": "24.04",
+    "build": null,
+    "kernel": "6.8.0-85-generic"
+  },
+  "updates": {
+    "package_manager": "apt",
+    "automatic": true,
+    "pending": 3
+  },
+  "security": {
+    "firewall_active": true,
+    "firewall_tool": "ufw",
+    "disk_encrypted": false,
+    "ssh_server_running": true,
+    "ssh_password_auth": "no",
+    "ssh_root_login": "no"
+  },
+  "tailscale": {
+    "installed": true,
+    "version": "1.90.4",
+    "node_name": "shared-server",
+    "ips": "100.64.0.30",
+    "tags": [
+      "tag:dev-guest"
+    ],
+    "key_expiry": null,
+    "online": true
+  },
+  "listening": [
+    {
+      "proto": "tcp",
+      "address": "0.0.0.0",
+      "port": 22,
+      "exposure": "all",
+      "process": "sshd",
+      "user": "root"
+    },
+    {
+      "proto": "tcp",
+      "address": "0.0.0.0",
+      "port": 8888,
+      "exposure": "all",
+      "process": "jupyter-lab",
+      "user": "dana"
+    }
+  ],
+  "software": [
+    {
+      "name": "python3",
+      "version": "3.12.3",
+      "source": "apt",
+      "package": "python3.12",
+      "package_version": "3.12.3-1ubuntu0.8",
+      "package_source": "python3.12",
+      "raw": "Python 3.12.3",
+      "path": "/usr/bin/python3"
+    }
+  ],
+  "containers": [],
+  "comfyui": [],
+  "secrets_present": {
+    "ssh_private_keys": 0,
+    "env_files": 0,
+    "aws_credentials": false,
+    "github_cli_token": false,
+    "netrc": false,
+    "docker_config": false,
+    "huggingface_token": false
+  },
+  "accounts": {
+    "mode": "all-users",
+    "collected_as": "root",
+    "users": [
+      {
+        "name": "root",
+        "uid": 0,
+        "admin": true,
+        "password": "locked",
+        "login_shell": "/bin/bash",
+        "autostart": {
+          "cron_jobs": 0,
+          "systemd_user": [],
+          "launch_agents": [],
+          "desktop_autostart": []
+        },
+        "software": {
+          "local_bin": [],
+          "pipx": [],
+          "npm_global": [],
+          "conda_envs": [],
+          "applications": []
+        },
+        "comfyui": [],
+        "secrets_present": {
+          "ssh_private_keys": 0,
+          "authorized_keys": 0,
+          "env_files": 0,
+          "aws_credentials": false,
+          "github_cli_token": false,
+          "netrc": false,
+          "docker_config": false,
+          "huggingface_token": false
+        }
+      },
+      {
+        "name": "owner",
+        "uid": 1000,
+        "admin": true,
+        "password": "set",
+        "login_shell": "/bin/bash",
+        "autostart": {
+          "cron_jobs": 0,
+          "systemd_user": [],
+          "launch_agents": [],
+          "desktop_autostart": []
+        },
+        "software": {
+          "local_bin": [],
+          "pipx": [],
+          "npm_global": [],
+          "conda_envs": [],
+          "applications": []
+        },
+        "comfyui": [],
+        "secrets_present": {
+          "ssh_private_keys": 1,
+          "authorized_keys": 2,
+          "env_files": 0,
+          "aws_credentials": false,
+          "github_cli_token": false,
+          "netrc": false,
+          "docker_config": false,
+          "huggingface_token": false
+        }
+      },
+      {
+        "name": "dana",
+        "uid": 1001,
+        "admin": false,
+        "password": "set",
+        "login_shell": "/bin/bash",
+        "autostart": {
+          "cron_jobs": 1,
+          "systemd_user": [
+            "jupyter.service"
+          ],
+          "launch_agents": [],
+          "desktop_autostart": []
+        },
+        "software": {
+          "local_bin": [],
+          "pipx": [
+            "jupyterlab"
+          ],
+          "npm_global": [],
+          "conda_envs": [
+            "sd"
+          ],
+          "applications": []
+        },
+        "comfyui": [
+          {
+            "path": "~dana/ComfyUI",
+            "custom_nodes": [
+              "ComfyUI-Manager",
+              "some-video-node"
+            ]
+          }
+        ],
+        "secrets_present": {
+          "ssh_private_keys": 0,
+          "authorized_keys": 1,
+          "env_files": 2,
+          "aws_credentials": false,
+          "github_cli_token": false,
+          "netrc": false,
+          "docker_config": false,
+          "huggingface_token": false
+        }
+      },
+      {
+        "name": "guest",
+        "uid": 1002,
+        "admin": false,
+        "password": "empty",
+        "login_shell": "/bin/bash",
+        "autostart": {
+          "cron_jobs": 0,
+          "systemd_user": [],
+          "launch_agents": [],
+          "desktop_autostart": []
+        },
+        "software": {
+          "local_bin": [
+            "ollama"
+          ],
+          "pipx": [],
+          "npm_global": [],
+          "conda_envs": [],
+          "applications": []
+        },
+        "comfyui": [],
+        "secrets_present": {
+          "ssh_private_keys": 0,
+          "authorized_keys": 0,
+          "env_files": 0,
+          "aws_credentials": true,
+          "github_cli_token": false,
+          "netrc": false,
+          "docker_config": false,
+          "huggingface_token": false
+        }
+      }
+    ]
+  }
+}

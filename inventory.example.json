@@ -14,6 +14,13 @@
       "census": "script"
     },
     {
+      "name": "shared-server",
+      "role": "team dev server",
+      "status": "active",
+      "census": "script",
+      "notes": "census with: sudo ./census.sh --all-users"
+    },
+    {
       "name": "old-laptop",
       "role": "spare",
       "status": "active",

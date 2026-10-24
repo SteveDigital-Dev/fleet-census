@@ -73,6 +73,30 @@ python3 fleet.py report
 Or run `./census.sh` on each machine and copy the files from `census/` into
 one place. A shared folder, `tailscale file cp`, or a USB stick all work.
 
+## Shared computers: check every account
+
+By default the census runs as you, so it sees the system-wide software plus **your own**
+tools, keys and startup items. On a computer other people also log in to, run it once with
+admin rights to include everyone:
+
+```bash
+sudo ./census.sh --all-users                 # on that computer
+./collect.sh --all-users me@shared-box       # or from another machine (asks for sudo there)
+```
+
+For each account it records:
+- admin rights, and whether the password is empty, locked or set (never the password itself)
+- things that start automatically (cron jobs, user services, LaunchAgents)
+- the account's own tools (`~/.local/bin`, pipx, npm, conda, `~/Applications`)
+- ComfyUI custom nodes, and how many SSH login keys and credential files it holds (counted
+  by file name, never opened)
+
+It also shows **which account runs each open port**. Every finding is tagged with its
+account, e.g. *"Account guest has no password"*.
+
+The weekly bulletin runs without admin rights, so it keeps the last all-accounts results
+and reminds you when they're over 30 days old. See `examples/census/shared-server.json`.
+
 ## Keep a list of what you own
 
 Copy `inventory.example.json` to `inventory.json` and list every device,

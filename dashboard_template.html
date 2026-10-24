@@ -270,6 +270,23 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
     var mark = v == null ? "?" : (v === good ? "✓" : "✗");
     return '<span class="p ' + cls + '">' + mark + " " + esc(label) + "</span>";
   }
+  function accountsList(a){
+    if(!a) return "";
+    if(a.mode !== "all-users"){
+      return a.other_accounts ? '<li class="muted">' + esc(a.other_accounts) +
+        " other account(s) not checked. Run <code>sudo ./census.sh --all-users</code> to include them.</li>" : "";
+    }
+    return (a.users || []).map(function(u){
+      var bits = [];
+      if(u.admin) bits.push("admin");
+      if(u.password === "empty") bits.push('<span class="bad-t">no password</span>');
+      if(u.autostart) bits.push(u.autostart + " autostart");
+      if(u.tools) bits.push(u.tools + " own tools");
+      if(u.keys_in) bits.push(u.keys_in + " login key(s)");
+      if(u.secrets) bits.push(u.secrets + " credential file(s)");
+      return "<li>Account <b>" + hl(u.name) + "</b>" + (bits.length ? " · " + bits.join(" · ") : "") + "</li>";
+    }).join("");
+  }
   function renderMachines(){
     var ms = D.machines.filter(function(m){
       return matches(m.name, m.role, m.os, m.cpu, m.model, (m.gpus||[]).join(" "),
@@ -277,6 +294,7 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
         m.exposed.map(function(e){ return e.port; }).join(" "),
         m.threats.map(function(t){ return t.id + " " + t.title; }).join(" "),
         m.findings.map(function(f){ return f.title + " " + f.detail; }).join(" "),
+        ((m.accounts || {}).users || []).map(function(u){ return u.name; }).join(" "),
         m.exposed.map(function(e){ return e.what || ""; }).join(" "));
     });
     if(!ms.length){ $("machines").innerHTML = '<div class="panel empty">No machines match.</div>'; return; }
@@ -305,7 +323,9 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
             return "<li>" + sev(x.severity) + " " + hl(x.title) + "</li>"; }).join("") +
           m.exposed.map(function(e){ return "<li>Port <b>" + esc(e.port) + "</b>/" + esc(e.proto) + " · " +
             (e.exposure === "all" ? '<span class="bad-t">every interface</span>' : "one address") +
-            (e.what ? " · " + esc(e.what) : "") + (e.process ? " · " + esc(e.process) : "") + "</li>"; }).join("") +
+            (e.what ? " · " + esc(e.what) : "") + (e.process ? " · " + esc(e.process) : "") +
+            (e.user ? " · account " + esc(e.user) : "") + "</li>"; }).join("") +
+          accountsList(m.accounts) +
           "</ul></details>" +
         "</div>";
     }).join("");
