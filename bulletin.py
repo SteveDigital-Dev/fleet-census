@@ -292,7 +292,8 @@ def collect_items(hosts, inv, advisories, tres):
             items.append({
                 "machine": machine, "severity": f["severity"], "title": f["title"],
                 "detail": f.get("detail", ""), "action": f.get("fix", ""), "source": "census check",
-                "exploited": "actively exploited" in (f.get("detail", "") + f["title"]).lower(),
+                "exploited": bool(f.get("exploited")) or "actively exploited" in (f.get("detail", "") + f["title"]).lower(),
+                "confidence": f.get("confidence"),
                 "cves": sorted(set(cves)), "refs": f.get("refs") or [], "platform": platform_name,
                 "account": f.get("account"), "key": cves[0] if cves else slug(f["title"])})
 
@@ -312,7 +313,8 @@ def collect_items(hosts, inv, advisories, tres):
                 "machine": machine, "severity": x["severity"], "title": x["title"],
                 "detail": (x.get("summary") or "") + (f" (matched {x['matched']})" if x.get("matched") else ""),
                 "action": x.get("action", ""), "source": x["source"],
-                "exploited": x["source"] == "CISA KEV" or x["severity"] == "critical",
+                "exploited": bool(x.get("exploited")) or x["source"] == "CISA KEV",
+                "confidence": x.get("confidence"),
                 "ransomware": bool(x.get("ransomware")), "fixed": x.get("fixed"),
                 "cves": sorted(set(c for c in ids if c.startswith("CVE-"))),
                 "refs": [x["url"]] if x.get("url") else [], "platform": platform_name,
@@ -349,6 +351,11 @@ def explain(items, hosts):
             i["why"] = WHY["kev"]
         else:
             i["why"] = WHY[k]
+        if i.get("confidence") == "verify" and "possibly vulnerable" not in i["title"]:
+            i["why"] += (" This match is by product name, so first check whether your version is affected: "
+                         "the 'More' link lists the fixed versions.")
+        elif i.get("confidence") == "insufficient":
+            i["why"] += " No version was recorded for this, so it can't be confirmed either way."
         i["how"] = how_steps(i, host_by.get(i["machine"]))
     return items
 
@@ -543,7 +550,10 @@ def diff(prev, cur):
 
 # ---------------------------------------------------------------- level + alerts
 def urgent_items(items):
-    return [i for i in items if i["severity"] == "critical" or (i["severity"] == "high" and i.get("exploited"))]
+    """Red-level items: critical, or exploited and high - and only when the match is confirmed
+    (or is an observed fact like an open port). Product-name-only matches never turn the level red."""
+    return [i for i in items if i.get("confidence") in (None, "confirmed")
+            and (i["severity"] == "critical" or (i["severity"] == "high" and i.get("exploited")))]
 
 
 def threat_level(items, eol):
@@ -592,6 +602,8 @@ def render_md(b):
             tags = [i["severity"].upper()]
             if i.get("exploited"):
                 tags.append("being exploited")
+            if i.get("confidence") in th.CONFIDENCE:
+                tags.append(th.CONFIDENCE[i["confidence"]].split(":")[0].lower())
             if i.get("ransomware"):
                 tags.append("ransomware")
             if i.get("epss") is not None:

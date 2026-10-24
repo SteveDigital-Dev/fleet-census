@@ -106,6 +106,10 @@ those results between admin runs. It tells you when they're more than 30 days ol
 - 🟠 **Amber:** problems worth fixing, none under active attack. This includes software past end-of-life.
 - 🟢 **Green:** nothing that needs you this week.
 
+Headlines show how sure each match is: *confirmed*, *check your version* (matched by
+product name only), *not enough data* or *already patched*. Only confirmed problems, and
+observed facts like an open port, can turn the level red.
+
 A distro package that *might* already be patched (Linux distributions often fix bugs without
 changing the version number) is never enough on its own to turn the level red.
 

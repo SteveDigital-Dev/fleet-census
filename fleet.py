@@ -92,15 +92,39 @@ def load_json(path):
 
 
 def load_census(folder):
+    """Load every census file that passes validation; explain and skip the rest."""
+    import schema
     hosts = []
     for p in sorted(Path(folder).glob("*.json")):
-        try:
-            d = load_json(p)
-            d["_file"] = p.name
-            hosts.append(d)
-        except Exception as e:  # keep going; report the broken file
-            print(f"Skipping {p.name}: not valid JSON ({e})", file=sys.stderr)
+        d, errors = schema.validate_file(p)
+        if errors:  # keep going; report the broken file
+            print(f"Skipping {p.name}: not a valid census. " + "; ".join(errors[:3])
+                  + (f" (+{len(errors) - 3} more; run: python3 fleet.py validate {p})" if len(errors) > 3 else ""),
+                  file=sys.stderr)
+            continue
+        d["_file"] = p.name
+        hosts.append(d)
     return hosts
+
+
+def validate_cmd(argv):
+    import schema
+    ap = argparse.ArgumentParser(prog="fleet.py validate", description="Check census files before trusting them")
+    ap.add_argument("files", nargs="+")
+    ap.add_argument("--expect-name", default=None, help="the machine name the report should carry")
+    ap.add_argument("--quiet", action="store_true", help="print only problems")
+    a = ap.parse_args(argv)
+    bad = 0
+    for f in a.files:
+        _, errors = schema.validate_file(f, a.expect_name)
+        if errors:
+            bad += 1
+            print(f"{f}: NOT a valid census", file=sys.stderr)
+            for e in errors[:10]:
+                print(f"  - {e}", file=sys.stderr)
+        elif not a.quiet:
+            print(f"{f}: ok")
+    return 1 if bad else 0
 
 
 def name_of(h):
@@ -143,9 +167,11 @@ def check_advisories(h, advisories):
             elif known_branches and vtuple(br) > known_branches[0]:
                 continue  # newer branch than any listed: assumed fixed
             else:
-                out.append(finding("info", f"{label}: {sw['name']} {sw['version']} not covered by this rule",
-                                   "This version's branch isn't listed in the advisory, so fleet.py can't tell.",
-                                   "Check the vendor's advisory for your version.", adv.get("refs")))
+                x = finding("info", f"{label}: {sw['name']} {sw['version']} not covered by this rule",
+                            "This version's branch isn't listed in the advisory, so fleet.py can't tell.",
+                            "Check the vendor's advisory for your version.", adv.get("refs"))
+                x["confidence"] = "insufficient"
+                out.append(x)
                 continue
             if not vulnerable:
                 continue
@@ -158,10 +184,14 @@ def check_advisories(h, advisories):
                         f"Your distro may already have patched it without changing the version - check its "
                         f"security tracker, or just run your system update.")
                 title = f"{label}: possibly vulnerable (distro package - verify)"
+                conf = "verify"
             else:
                 title = f"{label}: vulnerable"
-            out.append(finding(sev, title, adv.get("summary", "") + exploited + " " + how,
-                               adv.get("action", ""), adv.get("refs")))
+                conf = "confirmed"
+            x = finding(sev, title, adv.get("summary", "") + exploited + " " + how,
+                        adv.get("action", ""), adv.get("refs"))
+            x["confidence"], x["exploited"] = conf, bool(adv.get("exploited"))
+            out.append(x)
     return out
 
 
@@ -420,11 +450,21 @@ def reconcile_threats(res, hosts, inv, advisories):
                 sw.append("macos")
             if not names & set(sw):
                 continue  # no version info for this product - can't tell, keep the warning
-            if not check_advisories(h, advs):
+            found = check_advisories(h, advs)
+            if not found:
                 x["severity"] = "info"
                 x["patched"] = True
+                x["confidence"] = "patched"
                 x["title"] += " (your version is already patched)"
+            elif all(f.get("confidence") == "confirmed" for f in found):
+                # a version rule confirms the installed version is affected, on top of active exploitation
+                x["confidence"] = "confirmed"
+                x["severity"] = max((f["severity"] for f in found), key=lambda s: -SEVERITY_ORDER.get(s, 9))
     return res
+
+
+CERTAINTY_SHORT = {"confirmed": "confirmed", "verify": "check your version",
+                   "insufficient": "not enough data", "patched": "already patched"}
 
 
 def threats_section(threats):
@@ -445,6 +485,9 @@ def threats_section(threats):
             rw = " · ransomware" if x.get("ransomware") else ""
             lines.append(f"- {ICON.get(x['severity'], '')} **{x['id']}** ({x['source']}{rw}): {x['title']}")
             lines.append(f"  - Matched: {x['matched']}" + (f" · added {x['date_added']}" if x.get("date_added") else ""))
+            if x.get("confidence"):
+                import threats as _th
+                lines.append(f"  - Certainty: {_th.CONFIDENCE.get(x['confidence'], x['confidence'])}")
             lines.append(f"  - **Do:** {x['action']}")
         lines.append("")
     if not any_hit:
@@ -493,7 +536,8 @@ def build_report(hosts, inv, advisories, stale_days, threats=None):
             lines += ["No findings. 🎉", ""]
             continue
         for x in fl:
-            lines.append(f"- {ICON[x['severity']]} **{x['severity'].upper()}: {x['title']}**")
+            lines.append(f"- {ICON[x['severity']]} **{x['severity'].upper()}: {x['title']}**"
+                         + (f" · _{CERTAINTY_SHORT[x['confidence']]}_" if x.get("confidence") in CERTAINTY_SHORT else ""))
             if x["detail"]:
                 lines.append(f"  - {x['detail'].strip()}")
             if x["fix"]:
@@ -566,6 +610,8 @@ def build_watchlist(hosts, inv):
 
 # ---------- main ----------
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "validate":
+        return validate_cmd(sys.argv[2:])
     if len(sys.argv) > 1 and sys.argv[1] in ("setup", "bulletin", "snooze", "schedule", "sources", "uninstall"):
         import bulletin
         return bulletin.cli(sys.argv[1:])

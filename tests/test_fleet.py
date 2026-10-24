@@ -85,7 +85,9 @@ class Tests(unittest.TestCase):
         self.assertIn("CVE-2099-0001", mini)                   # PHP via homebrew php
         self.assertNotIn("CVE-2099-0003", mini)                # Exchange must not match
         if (dt.date.today() - dt.date(2026, 10, 22)).days <= 30:
-            self.assertEqual(mini["CVE-2099-0001"]["severity"], "critical")  # recent + ransomware
+            # recent + ransomware, but matched by product name only: not allowed to be "critical"
+            self.assertEqual(mini["CVE-2099-0001"]["severity"], "high")
+            self.assertEqual(mini["CVE-2099-0001"]["confidence"], "verify")
         self.assertEqual(pi["CVE-2099-0002"]["severity"], "info") if "CVE-2099-0002" in pi else None
         osv = [x for x in res["machines"]["pi-garage"] if x["source"] == "OSV"]
         self.assertEqual(len(osv), 1)
@@ -103,6 +105,31 @@ class Tests(unittest.TestCase):
         one = dashboard.write(data, Path(self.tmp) / "one.html", inline=True)[0].read_text()
         self.assertNotIn('src="fleet-data.js"', one)
         self.assertEqual(len(files), 2)
+
+    def test_confidence_labels(self):
+        res = self.threats.scan(self.hosts, self.inv, days=30, kev_file=FIX / "kev-sample.json", log=lambda m: None)
+        self.fleet.reconcile_threats(res, self.hosts, self.inv, self.adv)
+        m = {k: {x["id"]: x for x in v} for k, v in res["machines"].items()}
+        # Apple bug on macOS 26.6: KEV says exploited, the version rule confirms 26.6 < 26.7.1
+        self.assertEqual(m["studio-mini"]["CVE-2026-86950"]["confidence"], "confirmed")
+        # same bug on an iPhone already on 26.7.1: patched, demoted to info
+        self.assertEqual(m["my-iphone (manual)"]["CVE-2026-86950"]["confidence"], "patched")
+        self.assertEqual(m["my-iphone (manual)"]["CVE-2026-86950"]["severity"], "info")
+        # PHP test entry has no version rule: product-name match only
+        self.assertEqual(m["pi-garage"]["CVE-2099-0001"]["confidence"], "verify")
+        # nginx: OSV found a fixed version for this exact package, and the CVE is in KEV
+        osv = next(x for x in res["machines"]["pi-garage"] if x["source"] == "OSV")
+        self.assertEqual((osv["confidence"], osv["severity"], osv["exploited"]), ("confirmed", "critical", True))
+        self.assertEqual(m["pi-garage"]["CVE-2099-0004"]["confidence"], "confirmed")
+        # a device with no version can only ever be "not enough data"
+        hits = self.threats.match_kev(json.loads((FIX / "kev-sample.json").read_text()),
+                                      self.threats.targets_for_manual({"platform": "ios"}), 30)
+        self.assertTrue(hits)
+        self.assertTrue(all(h["confidence"] == "insufficient" for h in hits))
+        # census-check findings carry it too
+        f = self.fleet.check_advisories({"software": [{"name": "php", "version": "8.3.6", "source": "apt",
+                                                       "package": "php8.3-cli"}], "os": {}}, self.adv)
+        self.assertEqual(f[0]["confidence"], "verify")
 
     def test_accounts(self):
         h = next(x for x in self.hosts if self.fleet.name_of(x) == "shared-server")

@@ -68,6 +68,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(bu.threat_level(calm, [])[0], "green")
         self.assertEqual(bu.threat_level([dict(its[0], severity="medium", exploited=False)], [])[0], "amber")
 
+    def test_unverified_matches_never_red(self):
+        base = {"machine": "x", "title": "Vendor Product: some bug", "detail": "", "action": "", "source": "CISA KEV",
+                "exploited": True, "cves": ["CVE-1"], "refs": [], "key": "CVE-1"}
+        for conf in ("verify", "insufficient", "patched"):
+            it = dict(base, severity="critical", confidence=conf)
+            self.assertNotEqual(bu.threat_level([it], [])[0], "red", conf)
+        self.assertEqual(bu.threat_level([dict(base, severity="high", confidence="confirmed")], [])[0], "red")
+        it = bu.explain([dict(base, severity="high", confidence="verify")], [])[0]
+        self.assertIn("by product name", it["why"])
+
     def test_possibly_patched_not_red(self):
         it = {"machine": "x", "severity": "critical", "title": "PHP2Shell (CVE-1): possibly vulnerable (distro package - verify)",
               "detail": "", "action": "", "source": "census check", "exploited": True, "cves": [], "refs": [], "key": "k"}

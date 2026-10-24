@@ -13,7 +13,7 @@ It's two scripts with no installs and no accounts:
 |---|---|
 | `census.sh` | Runs on one machine (Linux, macOS, Raspberry Pi). Records OS, updates, firewall, SSH, disk encryption, Tailscale, open ports, installed software, Docker containers, ComfyUI custom nodes, and *whether* credential files exist. Saves one JSON file. |
 | `fleet.py` | Reads all the JSON files and writes a **report** (`FLEET.md`) with findings and exact fixes, a **check** (good for scripts), and a **watch list** to feed a daily "any new vulnerabilities for me?" prompt. |
-| `fleet.py threats` | **Threat search.** Checks every machine's hardware (CPU, GPU, board), OS and software against live public feeds: CISA's list of bugs being exploited *right now*, and OSV.dev for exact package versions. |
+| `fleet.py threats` | **Threat search.** Checks every machine's hardware (CPU, GPU, board), OS and software against live public feeds: CISA's list of bugs being exploited *right now*, and OSV.dev, which checks package versions against your distro's own security data. Every match says how sure it is. |
 | `fleet.py dashboard` | **Dashboard.** One page that opens straight from disk in any browser (no server, no internet). It shows an "Act now" list with copy-paste fixes, machine cards, manual devices, inventory, and a search box across everything. |
 
 It changes nothing, needs no root, and **never reads secret values**. It only
@@ -133,8 +133,20 @@ It then checks those against two free public sources:
 
 | Source | What a match means |
 |---|---|
-| [CISA Known Exploited Vulnerabilities](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) | Attackers are using this bug **right now**. KEV doesn't list versions, so a match means "check you're patched". Matches added in the last 30 days (`--days`) count as **immediate**. Ones linked to ransomware are marked critical. If one of your `rules/advisories.json` rules shows you're already on the fixed version, the match drops to info. |
-| [OSV.dev](https://osv.dev) | **Exact** version check for packages installed with apt (Debian, Ubuntu, Mint, Raspberry Pi OS). Tells you which update fixes it. If any of those bugs is also on CISA's list, it's marked critical. |
+| [CISA Known Exploited Vulnerabilities](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) | Attackers are using this bug **right now**. KEV lists products, not versions, so on its own a match is a lead, labelled *check your version*. A version rule in `rules/advisories.json`, or OSV, can turn it into *confirmed* or *already patched*. Matches added in the last 30 days (`--days`) count as **immediate**. |
+| [OSV.dev](https://osv.dev) | Version check for packages installed with apt (Debian, Ubuntu, Mint, Raspberry Pi OS), using the distro's own security data, so distro backports are taken into account. When it lists a fixed version, the match is *confirmed* and it tells you which update fixes it. When it doesn't, the bug may be unfixed or not apply, so it's labelled *check your version*. If a confirmed bug is also on CISA's list, it's critical. |
+
+**How sure is a match?** Every vulnerability carries one of four labels:
+
+| Label | Meaning |
+|---|---|
+| **confirmed** | Your installed version is known to be affected (a version rule or OSV says so). |
+| **check your version** | Matched by product name only, or the fix status is unclear. Look up your version. |
+| **not enough data** | No version was recorded (e.g. a device you listed without one). |
+| **already patched** | Your version includes the fix; shown for information only. |
+
+Only **confirmed** problems, and observed facts like an open port, can make the weekly threat
+level red. Product-name matches can't.
 
 Results are cached in `~/.cache/fleet-census`, so `--offline` works on a plane. Exit code 1 means
 something urgent, so it can drive scripts and alerts.
@@ -183,6 +195,17 @@ docs/PRIVATE-REPO.md      using this with your own private fleet repo
 examples/census/          fake census files for trying it out
 tests/                    python3 -m unittest discover tests   (no internet needed)
 ```
+
+## Safety
+
+- **Read-only.** Nothing is installed or changed on any machine.
+- **Untrusted input.** Machine names may only use letters, numbers, `.`, `-` and `_`, and SSH
+  targets may not start with `-`. So a name can't inject a command, escape the census folder,
+  or turn into an `ssh` option. Remote temp files are private (mode 600) and removed even if
+  you press Ctrl-C.
+- **Every report is checked** before it's saved or used: size, valid JSON, expected structure
+  and types. `python3 fleet.py validate census/*.json` runs the same check by hand. A report
+  corrupted by, say, a login banner is rejected with an explanation instead of being saved.
 
 ## Requirements
 

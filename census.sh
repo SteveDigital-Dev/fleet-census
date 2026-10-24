@@ -103,7 +103,21 @@ fi
 # ---------- identity ----------
 HOST=$(hostname 2>/dev/null | cut -d. -f1)
 [ -z "$HOST" ] && HOST=$(uname -n | cut -d. -f1)
-[ -z "$NAME" ] && NAME="$HOST"
+# The name becomes a file name and appears on the dashboard, so only safe characters.
+# Whole-string check (grep would test each line separately and miss embedded newlines).
+valid_name() {
+  case "$1" in ""|.|..|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) return 1 ;; esac
+  [ "${#1}" -le 64 ]
+}
+if [ -n "$NAME" ]; then
+  if ! valid_name "$NAME"; then
+    echo "Machine names may only use letters, numbers, '.', '-' and '_' (up to 64, starting with a letter or number)." >&2
+    exit 2
+  fi
+else
+  NAME=$(printf '%s' "$HOST" | tr -c 'A-Za-z0-9._-' '-' | sed 's/^[^A-Za-z0-9]*//' | cut -c1-64)
+  valid_name "$NAME" || NAME="this-machine"
+fi
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # ---------- operating system & hardware ----------

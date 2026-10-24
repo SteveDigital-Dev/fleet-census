@@ -169,6 +169,18 @@ def load_kev(path=None, offline=False):
     return _get_json(KEV_URL, "kev.json", 6, offline)
 
 
+# ---------- confidence ----------
+# How sure we are that a match really affects the machine. Shown next to every
+# vulnerability so nobody mistakes a product-name match for proof.
+CONFIDENCE = {
+    "confirmed": "Confirmed: your installed version is affected",
+    "verify": "Check your version: matched by product name, not version",
+    "insufficient": "Not enough data: no version was recorded for this",
+    "patched": "Already patched: your version includes the fix",
+}
+_HAS_VERSION = re.compile(r"\d+\.\d+")
+
+
 # ---------- KEV matching ----------
 def match_kev(kev, targets, days):
     today = dt.date.today()
@@ -183,6 +195,9 @@ def match_kev(kev, targets, days):
                 except ValueError:
                     added = dt.date(1970, 1, 1)
                 age = (today - added).days
+                # KEV says "attackers use this", not "your version has it": a product-name match is
+                # only a lead until a version rule or OSV confirms it.
+                conf = "verify" if _HAS_VERSION.search(label) else "insufficient"
                 hits.append({
                     "source": "CISA KEV", "id": v.get("cveID"), "matched": label,
                     "title": f"{v.get('vendorProject')} {v.get('product')}: {v.get('vulnerabilityName')}",
@@ -191,8 +206,8 @@ def match_kev(kev, targets, days):
                     "date_added": v.get("dateAdded"), "age_days": age,
                     "ransomware": (v.get("knownRansomwareCampaignUse") or "").lower() == "known",
                     "recent": age <= days,
-                    "severity": "critical" if age <= days and (v.get("knownRansomwareCampaignUse") or "").lower() == "known"
-                    else ("high" if age <= days else "info"),
+                    "exploited": True, "confidence": conf,
+                    "severity": "high" if age <= days else "info",
                     "url": f"https://nvd.nist.gov/vuln/detail/{v.get('cveID')}",
                 })
                 break
@@ -254,6 +269,9 @@ def match_osv(host, offline=False, max_details=150):
             "action": (f"Update to {fixed} or newer (sudo apt update && sudo apt upgrade)" if fixed
                        else "Run your system update; some of these may not have a fix yet."),
             "cves": cves, "ids": ids, "fixed": fixed, "recent": False, "ransomware": False,
+            # OSV answers for this exact distro package version. With a fixed version listed, the
+            # installed version is known-affected; without one, the entry may be unfixed or not apply.
+            "confidence": "confirmed" if fixed else "verify", "exploited": False,
             "severity": "medium", "url": f"https://osv.dev/list?ecosystem={eco.split(':')[0]}&q={name}",
         })
     return hits, eco
@@ -298,9 +316,15 @@ def scan(hosts, inventory, days=30, offline=False, kev_file=None, use_osv=True, 
                 osv_hits, _ = match_osv(h, offline)
                 kev_cves = {x["id"] for x in hits}
                 for oh in osv_hits:
-                    if kev_cves & set(oh.get("cves") or []):
-                        oh["severity"] = "critical"
+                    shared = kev_cves & set(oh.get("cves") or [])
+                    if shared:
+                        oh["exploited"] = True
+                        oh["severity"] = "critical" if oh["confidence"] == "confirmed" else "high"
                         oh["title"] += " - includes ACTIVELY EXPLOITED bug(s)"
+                        # OSV has checked the version, so the matching KEV entries are no longer just leads
+                        for kh in hits:
+                            if kh.get("id") in shared and oh["confidence"] == "confirmed":
+                                kh["confidence"] = "confirmed"
                 hits += osv_hits
             except Exception as e:
                 log(f"OSV lookup failed for {name}: {e}")
@@ -326,9 +350,12 @@ def summarize(result):
         lines.append(f"\n== {m} == {len(urgent)} to act on" + (f" ({older} older KEV matches, see JSON)" if older else ""))
         for x in sorted(urgent, key=lambda x: order.get(x["severity"], 9)):
             tag = " [RANSOMWARE]" if x.get("ransomware") else ""
+            conf = CONFIDENCE.get(x.get("confidence"))
             when = f" added {x['date_added']}" if x.get("date_added") else ""
             lines.append(f"  [{x['severity'].upper()}]{tag} {x['id']} - {x['title']}")
             lines.append(f"      matched: {x['matched']}{when}")
+            if conf:
+                lines.append(f"      certainty: {conf}")
             lines.append(f"      do: {x['action']}")
     if clear:
         lines.append(f"\nNo recent matches: {', '.join(clear)}")

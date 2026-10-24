@@ -177,6 +177,12 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
   function ago(iso){ if(!iso) return "never"; var d = (Date.now() - Date.parse(iso)) / 864e5;
     return d < 1 ? "today" : Math.round(d) + "d ago"; }
   function sev(s){ return '<span class="sev ' + esc(s) + '">' + esc(s) + "</span>"; }
+  // how sure a vulnerability match is (absent for observed facts like an open port)
+  var CERT = {confirmed: ["confirmed: your version is affected", "var(--crit)"],
+              verify: ["check your version: matched by product name", "var(--med)"],
+              insufficient: ["not enough data: no version recorded", "var(--muted)"],
+              patched: ["already patched", "var(--ok)"]};
+  function cert(c){ return CERT[c] ? '<span class="chip" title="How sure this match is" style="color:' + CERT[c][1] + '">' + CERT[c][0] + "</span>" : ""; }
 
   // ---- collect every actionable item ----
   function allItems(){
@@ -185,7 +191,7 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
       out.push({machine:machine, severity:x.severity, title:x.title,
         detail: kind === "threat" ? (x.summary || "") + (x.matched ? " — matched " + x.matched : "") : (x.detail || ""),
         fix: kind === "threat" ? x.action : x.fix, id: x.id || "", kind: kind,
-        ransomware: !!x.ransomware, url: x.url || (x.refs && x.refs[0]) || ""});
+        ransomware: !!x.ransomware, url: x.url || (x.refs && x.refs[0]) || "", confidence: x.confidence || null});
     }
     function add(m){
       var titles = (m.findings||[]).map(function(f){ return f.title; }).join(" ");
@@ -248,6 +254,7 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
         '<div><span class="chip m">' + hl(i.machine) + "</span>" +
           '<span class="chip">' + (i.kind === "threat" ? "live threat feed" : "census check") + "</span>" +
           (i.confirmed ? '<span class="chip" style="color:var(--crit)">also in CISA exploited list</span>' : "") +
+          cert(i.confidence) +
           (i.url ? '<a class="chip" href="' + esc(i.url) + '" target="_blank" rel="noopener">details ↗</a>' : "") + "</div>" +
         (i.detail ? '<div class="d">' + hl(i.detail) + "</div>" : "") +
         (i.fix ? '<div class="fix"><code id="fx' + n + '">' + hl(i.fix) + '</code><button data-copy="fx' + n + '">Copy</button></div>' : "") +
@@ -385,6 +392,7 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
         (i.exploited ? '<span class="chip" style="color:var(--crit)">being exploited</span>' : "") +
         (i.ransomware ? '<span class="chip" style="color:var(--crit)">ransomware</span>' : "") +
         (i.epss != null ? '<span class="chip">' + (i.epss * 100).toFixed(1) + "% chance of attack in 30 days</span>" : "") +
+        cert(i.confidence) +
         '<span class="chip">' + esc(i.source) + "</span>";
       return '<div class="headline"><div style="display:flex;gap:10px;align-items:baseline">' + sev(i.severity) +
         '<div class="t" style="font-weight:600">' + esc(i.title) + "</div></div><div>" + chips + "</div>" +
