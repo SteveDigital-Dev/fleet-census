@@ -28,16 +28,16 @@
 *{box-sizing:border-box}
 a{color:var(--accent)}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:1240px;margin:0 auto;padding:20px 16px 60px}
+main{max-width:min(1640px,100%);margin:0 auto;padding:20px max(16px,2vw) 60px}
 header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
 h1{font-size:22px;margin:0;letter-spacing:-.01em}
 h2{font-size:15px;margin:28px 0 10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .sub{color:var(--muted);font-size:13px}
 .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-input[type=search]{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:240px;font:inherit}
+input[type=search]{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:min(240px,100%);font:inherit}
 button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 10px}
 button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:10px}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .tile .n{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .tile .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
@@ -56,7 +56,7 @@ button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1p
 .sev.info{color:var(--info);background:var(--info-bg)}
 .chip{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin:2px 4px 0 0;color:var(--muted);background:var(--panel-2)}
 .chip.m{color:var(--ink);font-weight:600}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
 .card h3{margin:0;font-size:16px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .card .meta{color:var(--muted);font-size:12.5px}
@@ -91,12 +91,19 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
 .headline .why{font-size:13px;margin-top:6px} .headline .why b{color:var(--muted);font-weight:600}
 .headline ol{margin:6px 0 0 18px;padding:0;font-size:13px} .headline ol li{margin:3px 0}
 .headline ol code{font-family:var(--mono);font-size:12px;background:var(--panel-2);padding:1px 5px;border-radius:4px}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px;margin-top:12px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px}
 .box h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .box ul{margin:0;padding-left:18px} .check label{display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer}
 .check small{display:block;color:var(--muted)}
-@media (max-width:640px){ .item{grid-template-columns:1fr;gap:6px} input[type=search]{min-width:0} header .controls{width:100%;flex-wrap:nowrap} }
+@media (max-width:640px){ .item{grid-template-columns:1fr;gap:6px} input[type=search]{min-width:0} header .controls{width:100%;flex-wrap:nowrap}
+  .scroll table thead{display:none}
+  .scroll table,.scroll tbody,.scroll tr,.scroll td{display:block;width:100%}
+  .scroll tr{padding:8px 0;border-top:1px solid var(--line)} .scroll tr:first-child{border-top:0}
+  .scroll td{border:0;padding:3px 14px;display:grid;grid-template-columns:minmax(84px,36%) 1fr;gap:10px;overflow-wrap:anywhere}
+  .scroll td::before{content:attr(data-label);color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;line-height:1.9}
+  .scroll td:first-child{font-weight:600;display:block;padding-bottom:6px} .scroll td:first-child::before{content:none} }
+@media (min-width:1700px){ body{font-size:15px} .grid{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))} }
 </style>
 </head>
 <body>
@@ -446,6 +453,18 @@ mark{background:var(--med-bg);color:inherit;border-radius:3px}
   $("q").addEventListener("input", function(e){ clearTimeout(timer); timer = setTimeout(function(){ state.q = e.target.value.trim(); render(); }, 120); });
   render();
 })();
+
+// Label table cells so narrow screens can stack each row as a card.
+function labelTables() {
+  document.querySelectorAll("table").forEach(function (t) {
+    var heads = Array.prototype.map.call(t.querySelectorAll("thead th"), function (th) { return th.textContent.trim(); });
+    t.querySelectorAll("tbody tr").forEach(function (r) {
+      Array.prototype.forEach.call(r.children, function (c, i) { if (heads[i] && !c.hasAttribute("data-label")) c.setAttribute("data-label", heads[i]); });
+    });
+  });
+}
+labelTables();
+new MutationObserver(labelTables).observe(document.body, { childList: true, subtree: true });
 </script>
 </body>
 </html>
